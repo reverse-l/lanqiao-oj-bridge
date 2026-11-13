@@ -12,24 +12,33 @@ import {samplesFromMarkdown} from './sample-markdown';
 import {recoverHistory} from './result-card';
 import {connectionState} from './connection';
 import {LanguageId,LANGUAGES,languageOfSource,requireLanguage} from './languages';
+import {traceCph} from './cph-diagnostics';
+import {LanguagePreferences} from './language-preferences';
 
 const expand=(p:string)=>p.startsWith('~/')?path.join(os.homedir(),p.slice(2)):path.resolve(p);
 let bridge:BridgeServer|undefined;
 export async function activate(context:vscode.ExtensionContext){
  const output=vscode.window.createOutputChannel('Lanqiao OJ');context.subscriptions.push(output);
  const config=()=>vscode.workspace.getConfiguration('lanqiao');
+ const diagnostic=(text:string)=>{if(config().get<boolean>('diagnostics',false))output.appendLine(text);};
+ diagnostic(`Lanqiao OJ Bridge ${context.extension.packageJSON.version} · ${process.platform}/${process.arch} · VSCode ${vscode.version}`);
+ const preferences=new LanguagePreferences(context.globalState,()=>requireLanguage(config().get<string>('defaultLanguage','cpp')),async language=>{
+  const settings=config(),value=settings.inspect('defaultLanguage');
+  const target=value?.workspaceFolderValue!==undefined?vscode.ConfigurationTarget.WorkspaceFolder:value?.workspaceValue!==undefined?vscode.ConfigurationTarget.Workspace:vscode.ConfigurationTarget.Global;
+  await settings.update('defaultLanguage',language,target);
+ });
  let token=await context.secrets.get('browser-token');if(!token){token=randomBytes(32).toString('hex');await context.secrets.store('browser-token',token);}
  let history=recoverHistory(context.globalState.get('history',[]),false);
  const latest=(id:string,source?:string)=>history.filter(j=>j.problemId===id&&(!source||(j.language||'cpp')===languageOfSource(source)&&(!j.sourceName||j.sourceName===path.basename(source)))).at(-1);
  const templateFor=(language:LanguageId)=>language==='cpp'?expand(config().get<string>('template')!):expandOptional(config().get<string>('cTemplate',''));
  const connectionFor=(id:string,source:string)=>bridge?.connection(id,languageOfSource(source)||'cpp')||connectionState(false,id,[],false);
  const previews:ProblemPreviews=new ProblemPreviews(context,async(action,source):Promise<string>=>{
-  if(action==='copyMarkdown'){const file=path.join(path.dirname(source),'README.md');await rejectSymlinks(file);await vscode.env.clipboard.writeText(await readFile(file,'utf8'));return '已复制完整题面 Markdown（当前保存的 README），可粘贴给 AI。';}
-  if(action==='switchLanguage'){await switchLanguage(source);return '已打开所选语言解法；已有文件全部保留。';}
-  if(action==='sendToCph')return sendToCph(source);
-  if(action==='localTest'){await sendToCph(source,true);await vscode.commands.executeCommand('cph.runTestCases');return '已交给 CPH 使用现有编译配置运行本地样例。';}
+  if(action==='copyMarkdown'){const file=path.join(path.dirname(source),'README.md');await rejectSymlinks(file);await vscode.env.clipboard.writeText(await readFile(file,'utf8'));return '已复制题面 Markdown';}
+  if(action==='switchLanguage'){return await switchLanguage(source)?'语言已保存':'';}
+  if(action==='sendToCph'){await sendToCph(source);return '已发送至 CPH';}
+  if(action==='localTest'){await sendToCph(source,true);await vscode.commands.executeCommand('cph.runTestCases');return '已开始本地测试';}
   if(action==='open'){const {p}=await current(false,source);await vscode.env.openExternal(vscode.Uri.parse(p.url));return '已打开这道题的蓝桥官方页面。';}
-  if(action==='recent'){const {p}=await current(false,source);const text=recentText(p.id,source);output.appendLine(text);return text;}
+  if(action==='recent'){const {p}=await current(false,source);output.appendLine(recentText(p.id,source));output.show(true);return '最近评测已显示在输出面板';}
   if(action==='pair'){await vscode.commands.executeCommand('lanqiao.pair');return '已打开浏览器配对与脚本安装说明。';}
   if(action==='check'){const {p}=await current(false,source);bridge!.recheck(p.id);previews.refreshConnections();return '已重新检测，请保持本题网页打开。登录状态将以实际官方响应为准。';}
   if(action==='copyOutput'||action==='copyError'||action==='copyId'){
@@ -52,9 +61,10 @@ export async function activate(context:vscode.ExtensionContext){
   }
  };
  bridge=new BridgeServer({token,onUpdate:persist,onImport:async p=>{
-  const root=expand(config().get<string>('root')!),language=requireLanguage(config().get<string>('defaultLanguage','cpp')),template=templateFor(language);
+  const root=expand(config().get<string>('root')!),language=preferences.forProblem(p.id),template=templateFor(language);
   const cph=expandOptional(vscode.workspace.getConfiguration('cph').get<string>('general.saveLocation',''));
-  const result=await importProblem(root,template,p,cph,language);
+  const result=await importProblem(root,template,p,cph,language,async file=>(await vscode.workspace.openTextDocument(file)).fileName);
+  await preferences.rememberProblem(p.id,language);
   const extension=vscode.extensions.getExtension('DivyanshuAgrawal.competitive-programming-helper');if(extension)await extension.activate();
   const doc=await vscode.workspace.openTextDocument(result.source);await vscode.window.showTextDocument(doc,{viewColumn:vscode.ViewColumn.One,preview:false});
   await previews.show(result.source);
@@ -67,10 +77,10 @@ export async function activate(context:vscode.ExtensionContext){
   return {created:result.created,id:p.id,samples:result.samples};
  }});
  const port=config().get<number>('port',27124);
- try{await bridge.listen(port);history=recoverHistory(context.globalState.get('history',[]),true);await context.globalState.update('history',history);output.appendLine(`Bridge 已启动：127.0.0.1:${port}（与 CPH 27121 独立）`);}
+ try{await bridge.listen(port);history=recoverHistory(context.globalState.get('history',[]),true);await context.globalState.update('history',history);diagnostic(`Bridge 已启动：127.0.0.1:${port}（与 CPH 27121 独立）`);}
  catch(e){output.appendLine(String(e));void vscode.window.showWarningMessage(`Lanqiao Bridge 无法监听 ${port}，可能另一个 VSCode 窗口已启动。请在那个窗口操作，或更改 Lanqiao 端口。`);}
  context.subscriptions.push({dispose:()=>{void bridge?.close();}});
- async function current(save=false,target?:string):Promise<{file:string;p:Problem;code:string;sha:string;language:LanguageId}>{
+ async function current(save=false,target?:string):Promise<{file:string;originalFile:string;p:Problem;code:string;sha:string;language:LanguageId}>{
   const editor=vscode.window.activeTextEditor;
   const editorFile=editor?.document.uri.scheme==='file'?editor.document.fileName:undefined;
   const file=target||(editorFile&&languageOfSource(editorFile)?editorFile:previews.activeSource),language=file?languageOfSource(file):undefined;
@@ -80,22 +90,35 @@ export async function activate(context:vscode.ExtensionContext){
   if(!p.tests.length){const recovered=samplesFromMarkdown(await readFile(path.join(path.dirname(file),'README.md'),'utf8'));if(recovered.length)p={...p,tests:recovered};}
   const document=await vscode.workspace.openTextDocument(file);
   if(save&&document.isDirty&&!await document.save())throw new Error('当前代码保存失败，已取消操作');
-  const code=await readFile(file,'utf8');return {file,p,code,language,sha:createHash('sha256').update(code).digest('hex')};
+  const actualFile=document.fileName;await rejectSymlinks(actualFile);
+  await preferences.rememberProblem(p.id,language);
+  const code=await readFile(actualFile,'utf8');return {file:actualFile,originalFile:file,p,code,language,sha:createHash('sha256').update(code).digest('hex')};
  }
  async function sendToCph(source?:string,requireSamples=false):Promise<string>{
-  const {file,p}=await current(requireSamples,source),extension=vscode.extensions.getExtension('DivyanshuAgrawal.competitive-programming-helper');
-  if(!extension)throw new Error('未找到现有 CPH 扩展，请先启用 CPH');await extension.activate();
+  if(config().get<boolean>('diagnostics',false))output.show(true);
+  return traceCph(diagnostic,async step=>{
+  const {file,originalFile,p}=await step('读取当前题目及源码路径',()=>current(requireSamples,source)),extension=vscode.extensions.getExtension('DivyanshuAgrawal.competitive-programming-helper');
+  if(originalFile!==file)diagnostic(`[CPH] 已按 VSCode 文档统一路径：${originalFile} → ${file}`);
+  diagnostic(`[CPH] 题号 ${p.id}；源码 ${file}；题面样例 ${p.tests.length} 组`);
+  if(!extension)throw new Error('未找到现有 CPH 扩展，请先启用 CPH');
+  await step(`激活 CPH ${extension.packageJSON.version}（当前 ${extension.isActive?'已激活':'未激活'}）`,()=>extension.activate());
   const location=expandOptional(vscode.workspace.getConfiguration('cph',vscode.Uri.file(file)).get<string>('general.saveLocation',''));
-  const result=await ensureCphProblem(p,file,location);
-  let tests=JSON.parse(await readFile(result.path,'utf8')).tests,restored=false;
+  diagnostic(`[CPH] 保存目录 ${location||path.join(path.dirname(file),'.cph')}（${location?'设置值':'默认值'}）`);
+  const result=await step('创建或复用样例记录',()=>ensureCphProblem(p,file,location,originalFile));
+  diagnostic(`[CPH] 记录 ${result.path}；${result.created?'新建':'已有记录'}`);
+  if(result.migratedFrom)diagnostic(`[CPH] 已复制旧路径测试，原记录保留：${result.migratedFrom}`);
+  let tests=JSON.parse(await step('读取样例记录',()=>readFile(result.path,'utf8'))).tests,restored=false;
   if(Array.isArray(tests)&&!tests.length&&p.tests.length){
-   const answer=await vscode.window.showWarningMessage(`这道题的旧 CPH 记录没有样例，已从保存的题面找到 ${p.tests.length} 组。\n文件：${result.path}\n将先保存 .before-samples.bak 备份，再恢复空样例；源码和题面不变。`,{modal:true},'备份并恢复样例');
+   const answer=await step('等待确认恢复空样例',()=>vscode.window.showWarningMessage(`这道题的旧 CPH 记录没有样例，已从保存的题面找到 ${p.tests.length} 组。\n文件：${result.path}\n将先保存 .before-samples.bak 备份，再恢复空样例；源码和题面不变。`,{modal:true},'备份并恢复样例'));
    if(answer==='备份并恢复样例'){restored=(await restoreEmptyCphProblem(p,file,location)).restored;tests=JSON.parse(await readFile(result.path,'utf8')).tests;}
   }
+  diagnostic(`[CPH] 记录内样例 ${Array.isArray(tests)?tests.length:'格式异常'} 组`);
   if(requireSamples&&(!Array.isArray(tests)||!tests.length))throw new Error('当前 CPH 没有样例；请先恢复题面样例或手动添加。');
-  const doc=await vscode.workspace.openTextDocument(file);await vscode.window.showTextDocument(doc,{viewColumn:vscode.ViewColumn.One,preview:false});
-  await vscode.commands.executeCommand('cph.judgeView.focus');await vscode.window.showTextDocument(doc,{viewColumn:vscode.ViewColumn.One,preserveFocus:false,preview:false});
-  return `已发送至 CPH：${p.id}《${p.title}》 · ${path.basename(file)}\n${restored?`已备份旧记录并恢复 ${p.tests.length} 组样例`:result.created?`已加载 ${p.tests.length} 组题面样例`:tests?.length?'已复用现有测试，保留自定义样例':'当前没有样例，请恢复题面样例或手动添加'}。`;
+  const doc=await step('打开对应代码文件',()=>vscode.workspace.openTextDocument(file));await vscode.window.showTextDocument(doc,{viewColumn:vscode.ViewColumn.One,preview:false});
+  diagnostic(`[CPH] VSCode 实际文档路径 ${doc.fileName}；与记录路径${doc.fileName===file?'一致':'存在差异'}`);
+  await step('显示 CPH 面板',()=>vscode.commands.executeCommand('cph.judgeView.focus'));await vscode.window.showTextDocument(doc,{viewColumn:vscode.ViewColumn.One,preserveFocus:false,preview:false});
+  return `已发送至 CPH：${p.id}《${p.title}》 · ${path.basename(file)}\n${restored?`已备份旧记录并恢复 ${p.tests.length} 组样例`:result.migratedFrom?`已按正确路径关联 ${tests.length} 组现有测试，旧记录保留`:result.created?`已加载 ${p.tests.length} 组题面样例`:tests?.length?'已复用现有测试，保留自定义样例':'当前没有样例，请恢复题面样例或手动添加'}。`;
+  });
  }
  function recentText(id?:string,source?:string){const jobs=history.filter(j=>(!id||j.problemId===id)&&(!source||(j.language||'cpp')===languageOfSource(source)&&(!j.sourceName||j.sourceName===path.basename(source)))).slice(-10);return jobs.length?jobs.map(job=>`\n${job.kind==='debug'?'官方在线调试（自测）':job.kind==='submit'?'正式提交':'网页填入'} #${job.problemId} · ${LANGUAGES[job.language||'cpp'].label} · ${job.sourceName||'main.cpp'}\n${job.result?formatResult(job.result,usesInputDebug(job)):job.state}`).join('\n'):'本扩展还没有这道题的运行或提交记录，可在蓝桥原题页查看官方历史。';}
  async function openCurrent(){const {p}=await current();await vscode.env.openExternal(vscode.Uri.parse(p.url));}
@@ -124,21 +147,25 @@ export async function activate(context:vscode.ExtensionContext){
   const {file,p,language}=await current(false,source);
   const pick=await vscode.window.showQuickPick((['cpp','c'] as const).map(value=>({label:LANGUAGES[value].label,description:LANGUAGES[value].fileName+(value===language?'（当前）':''),value})),{title:'选择本题解题语言；已有文件保持原样',ignoreFocusOut:true});if(!pick)return;
   const location=expandOptional(vscode.workspace.getConfiguration('cph',vscode.Uri.file(file)).get<string>('general.saveLocation',''));
-  const result=await importProblem(path.dirname(path.dirname(file)),templateFor(pick.value),p,location,pick.value);
+  const result=await importProblem(path.dirname(path.dirname(file)),templateFor(pick.value),p,location,pick.value,async source=>(await vscode.workspace.openTextDocument(source)).fileName);
+  await preferences.choose(p.id,pick.value);
   const doc=await vscode.workspace.openTextDocument(result.source);await previews.show(result.source);await vscode.window.showTextDocument(doc,{viewColumn:vscode.ViewColumn.One,preview:false});
   if(vscode.extensions.getExtension('DivyanshuAgrawal.competitive-programming-helper'))await sendToCph(result.source);
+  return true;
  }
  const commands:Record<string,()=>unknown>={
   preview:async()=>{
    const uri=vscode.window.activeTextEditor?.document.uri;let source=uri?.scheme==='file'&&languageOfSource(uri.fsPath)?uri.fsPath:previews.activeSource;
    if(!source&&uri?.scheme==='file'&&path.basename(uri.fsPath)==='README.md'){
+    const metadata=path.join(path.dirname(uri.fsPath),'.lanqiao.json');await rejectSymlinks(metadata);
+    const problem=validateProblem(JSON.parse(await readFile(metadata,'utf8'))),preferred=preferences.forProblem(problem.id);
     const choices=[];for(const language of ['cpp','c'] as const){const file=path.join(path.dirname(uri.fsPath),LANGUAGES[language].fileName);try{await readFile(file);choices.push({label:LANGUAGES[language].label,description:LANGUAGES[language].fileName,file});}catch(error){if((error as NodeJS.ErrnoException).code!=='ENOENT')throw error;}}
-    source=choices.length===1?choices[0].file:(await vscode.window.showQuickPick(choices,{title:'选择题面绑定的解法'}))?.file;
+    source=choices.find(choice=>languageOfSource(choice.file)===preferred)?.file||(choices.length===1?choices[0].file:(await vscode.window.showQuickPick(choices,{title:'选择题面绑定的解法'}))?.file);
    }
-   if(!source)throw new Error('请先打开已导入题目的 C / C++ 文件或 README.md');await previews.show(source);
+   if(!source)throw new Error('请先打开已导入题目的 C / C++ 文件或 README.md');const selected=await current(false,source);await previews.show(selected.file);
   },
   switchLanguage:()=>switchLanguage(),
-  sendToCph:()=>sendToCph(),
+  sendToCph:async()=>{const message=await sendToCph();void vscode.window.showInformationMessage('已发送至 CPH');return message;},
   pair:async()=>{
    const pairing=bridge!.createPairing();
    output.appendLine('配对说明：令牌只存 SecretStorage / GM 隔离存储；配对码 5 分钟有效且只用一次。');
@@ -153,7 +180,7 @@ export async function activate(context:vscode.ExtensionContext){
   },
   revoke:async()=>{const next=randomBytes(32).toString('hex');await context.secrets.store('browser-token',next);bridge!.revoke(next);void vscode.window.showInformationMessage('全部浏览器授权已撤销，重新使用需要配对。');},
   actions:async()=>{
-   const actions=[['打开题面（含操作按钮）','preview'],['切换解题语言（C / C++）','switchLanguage'],['发送至 CPH','sendToCph'],['本地测试（CPH）','localTest'],['OJ 在线调试（官方服务器）','debug'],['正式提交（需确认）','submit'],['查看最近提交','recent'],['打开网页','open'],['填入网页代码（手动提交）','prepare'],['配对浏览器 / 安装脚本','pair']];
+   const actions=[['打开题面（含操作按钮）','preview'],['切换解题语言（C / C++）','switchLanguage'],['发送至 CPH','sendToCph'],['本地测试（CPH）','localTest'],['OJ 在线调试（官方服务器）','debug'],['正式提交（需确认）','submit'],['查看最近提交','recent'],['打开网页','open'],['填入网页代码（手动提交）','prepare'],['配对','pair']];
    const picked=await vscode.window.showQuickPick(actions.map(([label,command])=>({label,command})),{ignoreFocusOut:true,title:'蓝桥 OJ'});if(picked)await vscode.commands.executeCommand(`lanqiao.${picked.command}`);
   }
  };

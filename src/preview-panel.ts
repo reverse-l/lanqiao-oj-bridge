@@ -44,8 +44,8 @@ export class ProblemPreviews implements vscode.Disposable {
    const m=parsePreviewMessage(message);if(!m)return;
    if('type' in m){if(m.type==='viewState')e.scrollY=m.scrollY;else {e.ready=true;const connection=this.connection(e.problem.id,e.source);e.connection=JSON.stringify(connection);await panel.webview.postMessage({type:'snapshot',connection,job:this.latest(e.problem.id,e.source),pending:e.busy,text:e.actionText});}return;}
    if(e.busy)return;e.busy=true;
-   try{if(m.action==='copyBlock'){const content=e.blocks[m.index];if(content===undefined)throw new Error('样例已变化，请刷新题面后重试');await vscode.env.clipboard.writeText(content);e.actionText='已复制样例 / 代码块，保留原始空格和换行。';}else e.actionText=await this.onAction(m.action,source);await panel.webview.postMessage({type:'actionResult',text:e.actionText});}
-   catch(error){e.actionText=`操作失败：${error instanceof Error?error.message:String(error)}`;await panel.webview.postMessage({type:'actionResult',text:e.actionText});}
+   try{if(m.action==='copyBlock'){const content=e.blocks[m.index];if(content===undefined)throw new Error('样例已变化，请刷新题面后重试');await vscode.env.clipboard.writeText(content);e.actionText='已复制';}else e.actionText=await this.onAction(m.action,source);await panel.webview.postMessage({type:'actionResult',text:e.actionText,level:'success'});e.actionText='';}
+   catch(error){e.actionText=`操作失败：${error instanceof Error?error.message:String(error)}`;await panel.webview.postMessage({type:'actionResult',text:e.actionText,level:'error'});}
    finally{e.busy=false;this.refreshConnections();}
   }));
   const watcher=vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(vscode.Uri.file(path.dirname(source)),'README.md'));

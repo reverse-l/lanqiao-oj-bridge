@@ -3,18 +3,19 @@ import type {PreviewState} from '../preview-state';
 import type {ConnectionState} from '../connection';
 interface Host {postMessage:(value:unknown)=>void;setState:(value:PreviewState)=>void}
 export function installPreviewClient(win:Window,host:Host,initial:PreviewState){
- const doc=win.document;let pending=false,online=false,touched=false,scrollTimer:ReturnType<typeof setTimeout>|undefined;
+ const doc=win.document;let pending=false,online=false,touched=false,scrollTimer:ReturnType<typeof setTimeout>|undefined,statusTimer:ReturnType<typeof setTimeout>|undefined;
+ const showStatus=(text:string,temporary=false)=>{clearTimeout(statusTimer);doc.querySelector('#status')!.textContent=text;if(temporary)statusTimer=setTimeout(()=>{doc.querySelector('#status')!.textContent='';},3500);};
  const buttons=()=>doc.querySelectorAll<HTMLButtonElement>('button[data-action],button[data-copy-block]');
  const refresh=()=>buttons().forEach(b=>b.disabled=pending||(['debug','submit'].includes(b.dataset.action||'')&&!online));
- doc.addEventListener('click',event=>{const b=(event.target as Element)?.closest<HTMLButtonElement>('button[data-action],button[data-copy-block]');if(!b||b.disabled)return;pending=true;refresh();doc.querySelector('#status')!.textContent='正在处理…';host.postMessage(b.dataset.copyBlock!==undefined?{action:'copyBlock',index:Number(b.dataset.copyBlock)}:{action:b.dataset.action});});
+ doc.addEventListener('click',event=>{const b=(event.target as Element)?.closest<HTMLButtonElement>('button[data-action],button[data-copy-block]');if(!b||b.disabled)return;pending=true;refresh();showStatus('正在处理…');host.postMessage(b.dataset.copyBlock!==undefined?{action:'copyBlock',index:Number(b.dataset.copyBlock)}:{action:b.dataset.action});});
  win.addEventListener('message',event=>{
   const data=event.data;if(!data||typeof data!=='object')return;
-  if(data.type==='actionResult'){doc.querySelector('#status')!.textContent=typeof data.text==='string'?data.text:'';pending=false;}
-  if(data.type==='snapshot'){pending=data.pending===true;doc.querySelector('#status')!.textContent=typeof data.text==='string'?data.text:'';}
+  if(data.type==='actionResult'){showStatus(typeof data.text==='string'?data.text:'',data.level==='success');pending=false;}
+  if(data.type==='snapshot'){pending=data.pending===true;showStatus(typeof data.text==='string'?data.text:'');}
   if(data.type==='jobResult'||data.type==='snapshot')doc.querySelector('#result')!.innerHTML=renderResultCard(data.job);
   if(data.type==='connection'||data.type==='snapshot'){
    const c=data.connection as ConnectionState;online=c?.canRunOnline===true;
-   doc.querySelector('#connection')!.innerHTML=`<strong>${escapeHtml(c.label)}</strong><button data-action="check">重新检测</button><button data-action="pair">配对 / 脚本</button><small>${escapeHtml(c.detail)}</small>`;
+   doc.querySelector('#connection')!.innerHTML=`<strong title="${escapeHtml(c.detail)}">${escapeHtml(c.label)}</strong><button data-action="check">重新检测</button><button data-action="pair">配对</button>`;
   }
   refresh();
  });

@@ -9,6 +9,9 @@ test('断线时仍可本地测试；在线最终结果不被排队回执覆盖',
  installPreviewClient(window as any,{postMessage:m=>sent.push(m),setState:s=>state=s},{version:1,source:'/tmp/main.cpp',scrollY:0});
  const receive=(data:unknown)=>{const event=new window.Event('message');Object.assign(event,{data});window.dispatchEvent(event);};
  receive({type:'connection',connection:{kind:'waiting',label:'等待',detail:'打开网页',canRunOnline:false}});
+ assert.equal(Boolean(document.querySelector('#connection small')),false);
+ assert.equal(document.querySelector('[data-action="pair"]')?.textContent,'配对');
+ assert.equal(document.querySelector('#connection strong')?.getAttribute('title'),'打开网页');
  assert.equal((document.querySelector('[data-action="debug"]') as any).disabled,true);
  (document.querySelector('[data-action="localTest"]') as any).click();assert.deepEqual(sent.at(-1),{action:'localTest'});
  receive({type:'jobResult',job:{id:'x',kind:'debug',problemId:'3008',created:1,state:'finished',result:{phase:'done',status:'CE',stderr:'bad'}}});
@@ -37,4 +40,14 @@ test('用户指针滚动后图片 load 不覆盖新阅读位置',()=>{
  installPreviewClient(window as any,{postMessage:()=>{},setState:()=>{}},{version:1,source:'/tmp/main.cpp',scrollY:100});
  window.dispatchEvent(new window.Event('pointerdown'));window.dispatchEvent(new window.Event('load'));
  assert.deepEqual(positions,[100]);
+});
+test('成功反馈短暂显示，错误提示保留，下一次操作不会被旧计时器清除',t=>{
+ t.mock.timers.enable({apis:['setTimeout']});
+ const {window,document}=parseHTML('<html><body><button data-action="localTest">测试</button><div id="status"></div></body></html>');
+ Object.assign(window,{scrollTo:()=>{},requestAnimationFrame:(cb:()=>void)=>cb()});
+ installPreviewClient(window as any,{postMessage:()=>{},setState:()=>{}},{version:1,source:'/tmp/main.cpp',scrollY:0});
+ const receive=(text:string,level:string)=>{const e=new window.Event('message');Object.assign(e,{data:{type:'actionResult',text,level}});window.dispatchEvent(e);};
+ receive('已发送至 CPH','success');t.mock.timers.tick(3501);assert.equal(document.querySelector('#status')?.textContent,'');
+ receive('登录失效','error');t.mock.timers.tick(3501);assert.equal(document.querySelector('#status')?.textContent,'登录失效');
+ receive('已复制','success');document.querySelector('button')!.click();t.mock.timers.tick(3501);assert.equal(document.querySelector('#status')?.textContent,'正在处理…');
 });

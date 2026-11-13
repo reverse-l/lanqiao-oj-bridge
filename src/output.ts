@@ -1,4 +1,5 @@
 import {PlatformResult} from './report';
+import {testCaseSummary} from './test-case-summary';
 const readable=(s:string)=>s.replace(/\x1b\[[0-9;]*[A-Za-z]/g,'');
 export const usesInputDebug=(job:{kind:string;debugMode?:string})=>job.kind==='debug'&&job.debugMode!=='official';
 export function displayResult(r:PlatformResult,inputDebug=false):PlatformResult {
@@ -22,6 +23,6 @@ export function formatResult(raw:PlatformResult,inputDebug=false){
  if(r.passRate!==undefined)lines.push(`通过率：${r.passRate}%`);
  if(r.stdout!==undefined)lines.push(`标准输出：\n${r.stdout}`);
  if(r.stderr)lines.push(`标准错误 / 编译错误：\n${readable(r.stderr)}`);
- if(r.testCases)lines.push(`官方测试点：\n${JSON.stringify(r.testCases,null,2)}`);
+ const summary=testCaseSummary(r.testCases);if(summary)lines.push(summary);
  return lines.join('\n');
 }

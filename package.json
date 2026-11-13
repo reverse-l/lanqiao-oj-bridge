@@ -3,7 +3,7 @@
   "displayName": "Lanqiao OJ Bridge",
   "description": "蓝桥 OJ 题面导入、C / C++ 解法、CPH 样例、官方在线调试与确认提交",
   "publisher": "epsilon-dev",
-  "version": "0.4.0",
+  "version": "0.4.4",
   "license": "MIT",
   "engines": {
     "vscode": "^1.95.0"
@@ -25,7 +25,7 @@
     "build": "node scripts/build.mjs",
     "check": "tsc --noEmit",
     "test": "node --import tsx --test test/*.test.ts",
-    "package": "npm run build && vsce package --no-dependencies --allow-missing-repository -o artifacts/lanqiao-oj-bridge-0.4.0.vsix"
+    "package": "npm run build && vsce package --no-dependencies --allow-missing-repository -o artifacts/lanqiao-oj-bridge-0.4.4.vsix"
   },
   "contributes": {
     "commands": [
@@ -40,7 +40,7 @@
       },
       {
         "command": "lanqiao.pair",
-        "title": "Lanqiao: 配对浏览器 / 安装脚本"
+        "title": "Lanqiao: 配对"
       },
       {
         "command": "lanqiao.import",
@@ -100,6 +100,11 @@
     "configuration": {
       "title": "Lanqiao OJ Bridge",
       "properties": {
+        "lanqiao.diagnostics": {
+          "type": "boolean",
+          "default": false,
+          "description": "排错时才开启：显示 CPH 路径、样例关联和阶段日志。正常使用默认关闭，无需重载。"
+        },
         "lanqiao.port": {
           "type": "number",
           "default": 27124,
@@ -124,7 +129,7 @@
             "c"
           ],
           "default": "cpp",
-          "description": "新导入题目的默认语言；已有题目可通过切换解题语言创建另一份解法。"
+          "description": "新题默认语言；点击题面 C / C++ 标记切换时自动记住。已有题目保留各自语言选择。"
         },
         "lanqiao.cTemplate": {
           "type": "string",

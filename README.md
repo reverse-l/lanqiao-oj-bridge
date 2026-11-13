@@ -8,32 +8,42 @@
 - [ScriptCat 安装 / 更新脚本](https://scriptcat.org/zh-CN/script-show-page/9067) / [GitHub 脚本镜像](https://raw.githubusercontent.com/reverse-l/lanqiao-oj-bridge/main/userscript/lanqiao-bridge.user.js)
 - [反馈问题](https://github.com/reverse-l/lanqiao-oj-bridge/issues)
 
-当前版本：VSCode 扩展 **0.4.0**，配套脚本 **0.4.0**。脚本通过 [ScriptCat](https://scriptcat.org/zh-CN/script-show-page/9067) 和 GitHub 分发，暂未发布 Greasy Fork。
+安装包版本：VSCode 扩展 **0.4.4**，配套脚本 **0.4.0**。商店和 GitHub 的可下载版本以各页面为准。脚本通过 [ScriptCat](https://scriptcat.org/zh-CN/script-show-page/9067) 和 GitHub 分发，暂未发布 Greasy Fork。
+
+0.4.4 默认关闭诊断日志，发送至 CPH 不再主动打开输出面板。仅排错时可在设置中开启 `Lanqiao Diagnostics`；无需重载，排错后关闭即可。正常错误提示与官方运行 / 评测结果不受影响。
+
+## v0.4.3：简洁界面与语言记忆
+
+点击题目标题旁的 `C` / `C++` 标记即可切换语言，悬停查看编译器和文件。选择会被记住：新题沿用最近选择，已有题目保留各自语言；重新导入及从 README 打开可恢复。明确打开某份源码时，以该文件为准。只保存本扩展的语言设置，不修改 CPH 或 Code Runner 配置。
+
+提交按钮显示“提交”，实际语言与文件仍在提交确认框中核对。连接说明放在悬停提示中，成功反馈短暂显示，错误继续提示。评测仅显示测试点总数与通过汇总，不再打印逐点 JSON；指定输入调试仍只展示执行结果。
 
 ## v0.4.0：C / C++
 
-默认继续使用 C++。在已导入题面的「切换语言」中选择 C，或运行 `Lanqiao: 切换解题语言（C / C++）`，会在同一题目目录创建 / 打开独立 `main.c`，保留 `main.cpp`、笔记和已有自定义测试。也可将 `lanqiao.defaultLanguage` 设为 `c`，用于新题导入。
+首次安装默认使用 C++。点击已导入题面的语言标记选择 C，或运行 `Lanqiao: 切换解题语言（C / C++）`，会在同一题目目录创建 / 打开独立 `main.c`，保留 `main.cpp`、笔记和已有自定义测试。也可将 `lanqiao.defaultLanguage` 设为 `c`，用于新题导入。
 
 C 模板配置 `lanqiao.cTemplate` 留空使用内置基础模板，指定路径时使用自己的 C 模板；原 `lanqiao.template` 继续只用于 C++。CPH 根据当前源码扩展名使用现有 C 或 C++ 配置，本工具不修改编译器和全局配置。每份源码分别关联 CPH 测试，兼容数据另外保存为 `companion.c.json` / `companion.cpp.json`。
 
 C 在线操作需要同时更新 VSIX 与脚本至 0.4.0，刷新网页；配对和脚本权限保留。网页需手动选择 **C（gcc8.3.0）**，C++ 继续选择 **C++（g++17）**。任务只交给同题同语言页面；语言不一致时停止，避免误提交。题面、确认框、运行历史显示对应文件和语言，既有 C++ 记录继续可读。旧脚本仍可用于 C++，C 在线操作会提示更新。Python 暂不支持。
 
-从 [VSCode Marketplace](https://marketplace.visualstudio.com/items?itemName=epsilon-dev.lanqiao-oj-bridge) 更新扩展，从 ScriptCat 或 GitHub 更新配套脚本至 0.4.0，然后刷新题目页。离线安装可使用 Release 中的 `lanqiao-oj-bridge-0.4.0.vsix` 和 `lanqiao-bridge.user.js`。
+从 [VSCode Marketplace](https://marketplace.visualstudio.com/items?itemName=epsilon-dev.lanqiao-oj-bridge) 更新扩展，或使用对应版本的 `.vsix` 离线安装。已安装的 0.4.0 配套脚本可继续使用。
 
 ## 安装与首次配对
+
+Windows 可将题目保存到其他盘：`Ctrl+,` 打开设置，搜索 `Lanqiao Root`，例如填写 `D:/Code/Algorithm/Lanqiao`。也可在用户设置 JSON 中设置 `"lanqiao.root": "D:/Code/Algorithm/Lanqiao"`。这只影响后续导入位置，旧题目不会自动搬迁；C++ 模板位置由 `lanqiao.template` 独立设置。无需修改扩展代码或 CPH 配置。
 
 1. 准备 VSCode 1.95+、浏览器中的 Tampermonkey，以及自己的蓝桥账号。需要本地测试时安装 [Competitive Programming Helper（CPH）](https://marketplace.visualstudio.com/items?itemName=DivyanshuAgrawal.competitive-programming-helper)，配置自己的 C++ 编译器。
 2. 在 VSCode 扩展市场搜索 `epsilon-dev.lanqiao-oj-bridge` 安装，或从 [Releases](https://github.com/reverse-l/lanqiao-oj-bridge/releases/latest) 下载 `.vsix`，在 VSCode 扩展视图右上角 `…` →「从 VSIX 安装」，重载窗口。Marketplace 扩展标识为 `epsilon-dev.lanqiao-oj-bridge`。此前通过 VSIX 安装的 `epsilon-local.lanqiao-oj-bridge` 属于不同扩展；迁移时先卸载旧版，再安装 Marketplace 版本并重新配对，原有题目目录和代码可继续使用。
 3. 安装并启用 Tampermonkey，点击上方脚本安装链接，检查后安装。若浏览器只显示源码，可下载 Release 中的 `lanqiao-bridge.user.js`，在 Tampermonkey 管理面板 →「实用工具」→「从文件导入」。按浏览器和 Tampermonkey 的提示允许用户脚本运行。
 4. VSCode 设置搜索 `Lanqiao`，指定自己的题目目录 `lanqiao.root` 和**已存在**的 C++ 模板 `lanqiao.template`。默认分别是 `~/Code/Learning/Algorithm/Lanqiao`、`~/Code/template.cpp`；其他用户可选择自己的路径。模板不存在时先创建或指定模板。
-5. 命令面板运行 `Lanqiao: 配对浏览器 / 安装脚本`。正常登录并打开 [蓝桥题目页](https://www.lanqiao.cn/problems/3008/learning/)，在左下角点「配对」，输入 VSCode 显示的一次性配对码（5 分钟有效）。**配对码不是蓝桥登录凭据，每位用户在自己电脑上独立配对。**
+5. 命令面板运行 `Lanqiao: 配对`。正常登录并打开 [蓝桥题目页](https://www.lanqiao.cn/problems/3008/learning/)，在左下角点「配对」，输入 VSCode 显示的一次性配对码（5 分钟有效）。**配对码不是蓝桥登录凭据，每位用户在自己电脑上独立配对。**
 6. 网页点击「导入 VSCode」。生成题面、模板代码和样例，打开题面与 C++ 文件。在线操作时保持对应题目的已配对网页打开。
 
 使用打包扩展不需要额外安装 Node.js；Node.js 只用于开发。CPH、编译器、Tampermonkey 和浏览器需要自行安装。
 
 ## 日常使用
 
-题面标题下有「发送至 CPH」「本地测试」「OJ 在线调试」「提交当前源码」「查看评测」「打开原题」。已有题目可打开 `main.cpp`、`main.c` 或 `README.md`，运行 `Lanqiao: 打开题面（含操作按钮）`。预览按钮绑定当前题目，切换编辑器后不会操作其他题。
+题面标题下有「发送至 CPH」「本地测试」「OJ 在线调试」「提交」「查看评测」「打开原题」。点击标题旁的 C / C++ 标记切换语言。已有题目可打开 `main.cpp`、`main.c` 或 `README.md`，运行 `Lanqiao: 打开题面（含操作按钮）`。预览按钮绑定当前题目，切换编辑器后不会操作其他题。
 
 题面开始处可「复制题面 Markdown」，复制当前已保存的完整 README（含来源、公式和图片链接），不会附带解题代码。样例、代码块和运行输出的复制图标位于框内，鼠标悬停或键盘聚焦时显示。
 

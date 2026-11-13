@@ -8,7 +8,7 @@ test('官方自测与正式提交分开标注；只展示真实数据且保留�
  assert.match(document.querySelector('section')!.textContent!,/官方在线自测/);
  assert.doesNotMatch(document.querySelector('.verdict')!.textContent!,/WA/);
  assert.match(document.querySelector('[data-field="runtime"]')!.textContent!,/0/);
- assert.equal(document.querySelector('[data-field="memory"]')!.textContent,'未提供');
+ assert.equal(Boolean(document.querySelector('[data-field="memory"]')),false);
  assert.equal(document.querySelector('pre')!.textContent,'0\n1\n');
  assert.match(renderResultCard({...j,kind:'submit'}),/正式提交/);
 });
@@ -47,4 +47,10 @@ test('未持有服务的第二窗口不能把另一窗口的活动请求标为�
 test('C 运行结果显示文件与语言，旧 C++ 历史继续可读',()=>{
  const html=renderResultCard({id:'c-job',problemId:'3008',kind:'debug',language:'c',sourceName:'main.c',state:'finished',created:1,result:{phase:'done',stdout:'1\n'}});
  assert.match(html,/main\.c/);assert.match(html,/C（gcc8\.3\.0）/);
+});
+test('结果卡只显示测试点汇总，没有逐点表格或常驻小字',()=>{
+ assert.equal(renderResultCard(), '');
+ const {document}=parseHTML(renderResultCard({id:'x',kind:'submit',problemId:'124',state:'finished',created:1,result:{phase:'done',status:'AC',testCases:[{status:true},{result:'通过'}]}}));
+ assert.match(document.querySelector('.case-summary')!.textContent!,/通过 2 \/ 2 个测试点/);
+ assert.equal(document.querySelector('table,.result-date'),null);
 });
