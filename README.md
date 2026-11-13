@@ -1,5 +1,11 @@
 # Lanqiao OJ Bridge
 
+> **非官方声明**
+>
+> **Lanqiao OJ Bridge 为爱好者独立开发的学习辅助工具，非蓝桥官方产品，未获得蓝桥杯组委会授权，仅用于备赛学习，无商业用途。**
+>
+> 本项目当前免费提供，作者不通过本项目收费或售卖题目。
+
 把蓝桥 OJ 题面、CPH 本地样例和官方在线调试连接到 VSCode。使用自己已登录的蓝桥网页，不需要提供 Cookie、JWT 或密码。本项目独立开发，与蓝桥官方无隶属关系。
 
 **需要同时安装 VSCode 扩展和 Tampermonkey 脚本。脚本单独安装不能完成桥接。**
@@ -8,7 +14,7 @@
 - [ScriptCat 安装 / 更新脚本](https://scriptcat.org/zh-CN/script-show-page/9067) / [GitHub 脚本镜像](https://raw.githubusercontent.com/reverse-l/lanqiao-oj-bridge/main/userscript/lanqiao-bridge.user.js)
 - [反馈问题](https://github.com/reverse-l/lanqiao-oj-bridge/issues)
 
-安装包版本：VSCode 扩展 **0.4.4**，配套脚本 **0.4.0**。商店和 GitHub 的可下载版本以各页面为准。脚本通过 [ScriptCat](https://scriptcat.org/zh-CN/script-show-page/9067) 和 GitHub 分发，暂未发布 Greasy Fork。
+版本信息：VSCode 扩展安装包以商店和 GitHub Release 的下载页为准，源码版本见 `package.json`；浏览器脚本版本以 ScriptCat 或脚本头部为准。扩展与脚本分别维护版本号，不要求数字相同。脚本通过 [ScriptCat](https://scriptcat.org/zh-CN/script-show-page/9067) 和 GitHub 分发，暂未发布 Greasy Fork。
 
 0.4.4 默认关闭诊断日志，发送至 CPH 不再主动打开输出面板。仅排错时可在设置中开启 `Lanqiao Diagnostics`；无需重载，排错后关闭即可。正常错误提示与官方运行 / 评测结果不受影响。
 
@@ -92,6 +98,14 @@ Bridge 只绑定 `127.0.0.1`，采用随机令牌、VSCode SecretStorage、Tampe
 无遥测或本项目云端代码收集。代码仅在你启动在线调试、确认提交或选择填入网页时交给蓝桥官方页面。浏览器负责正常登录，不绕过登录、验证码、Cloudflare 或访问限制。正式提交每次需要确认，任务不会自动补发。
 
 不修改 CPH、洛谷、Code Runner 全局配置。运行 `Lanqiao: 撤销浏览器授权` 可撤销当前扩展的所有配对。脚本 namespace 保留早期标识以兼容旧安装和配对，实际地址以 homepage / support 链接为准。
+
+## 使用提示与项目定位
+
+- **一题一导入**：用户自行登录并打开题目页面，主动导入当前题目。本工具不提供批量抓取或批量导出题库功能，不建立、收集或上传云端题库。
+- **本地保存**：导入的题面、样例和解法保存在用户自己的电脑中，便于个人学习与复习。
+- **尊重内容权利**：请勿利用本工具公开二次分发受版权保护的题面、批量导出题库、收费售题或规避平台限制。使用时须遵守平台规则及适用的赛事规则。
+- **免费学习工具**：本项目当前不收费、不售卖题库，不提供付费评测服务；在线调试和正式评测由蓝桥官方平台提供。
+- **开源许可**：软件源代码继续采用 MIT 许可证；以上说明描述项目定位与使用提醒，不改变现有软件许可证，也不代表取得题目内容的再分发授权。
 
 ## 已验证与限制
 
