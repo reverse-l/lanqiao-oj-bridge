@@ -1,0 +1,12 @@
+node_modules/
+.DS_Store
+**/.DS_Store
+dist/
+media/
+.superpowers/
+artifacts/*.vsix
+artifacts/*.zip
+artifacts/*.log
+artifacts/*private*
+artifacts/preview-files-before.json
+artifacts/preview-history-before.json

@@ -1,0 +1,1 @@
+export const COPY_ICON='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="8" y="8" width="12" height="13" rx="1.5"/><path d="M16 4H5a1 1 0 0 0-1 1v12"/></svg>';

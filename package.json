@@ -1,0 +1,151 @@
+{
+  "name": "lanqiao-oj-bridge",
+  "displayName": "Lanqiao OJ Bridge",
+  "description": "蓝桥 OJ 题面导入、CPH 样例、官方在线调试与确认提交",
+  "publisher": "epsilon-local",
+  "version": "0.3.4",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onWebviewPanel:lanqiao.problem"
+  ],
+  "main": "./dist/extension.js",
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false
+    }
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "check": "tsc --noEmit",
+    "test": "node --import tsx --test test/*.test.ts",
+    "package": "npm run build && vsce package --no-dependencies --allow-missing-repository -o artifacts/lanqiao-oj-bridge-0.3.4.vsix"
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "lanqiao.preview",
+        "title": "Lanqiao: 打开题面（含操作按钮）",
+        "icon": "$(open-preview)"
+      },
+      {
+        "command": "lanqiao.sendToCph",
+        "title": "Lanqiao: 发送至 CPH"
+      },
+      {
+        "command": "lanqiao.pair",
+        "title": "Lanqiao: 配对浏览器 / 安装脚本"
+      },
+      {
+        "command": "lanqiao.import",
+        "title": "Lanqiao: 导入题目（打开蓝桥网页）"
+      },
+      {
+        "command": "lanqiao.localTest",
+        "title": "Lanqiao: 本地测试（CPH）"
+      },
+      {
+        "command": "lanqiao.debug",
+        "title": "Lanqiao: 在线调试当前代码"
+      },
+      {
+        "command": "lanqiao.submit",
+        "title": "Lanqiao: 提交当前代码"
+      },
+      {
+        "command": "lanqiao.prepare",
+        "title": "Lanqiao: 填入网页代码（手动提交）"
+      },
+      {
+        "command": "lanqiao.recent",
+        "title": "Lanqiao: 查看最近提交"
+      },
+      {
+        "command": "lanqiao.open",
+        "title": "Lanqiao: 打开当前题目"
+      },
+      {
+        "command": "lanqiao.actions",
+        "title": "Lanqiao: 题目操作"
+      },
+      {
+        "command": "lanqiao.revoke",
+        "title": "Lanqiao: 撤销浏览器授权"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "lanqiao.preview",
+          "when": "resourceExtname == .cpp || resourceFilename == README.md",
+          "group": "navigation@1"
+        },
+        {
+          "command": "lanqiao.actions",
+          "when": "resourceExtname == .cpp",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Lanqiao OJ Bridge",
+      "properties": {
+        "lanqiao.port": {
+          "type": "number",
+          "default": 27124,
+          "minimum": 1024,
+          "maximum": 65535,
+          "description": "只绑定 127.0.0.1，不能使用 CPH 的 27121；修改后重载窗口。"
+        },
+        "lanqiao.root": {
+          "type": "string",
+          "default": "~/Code/Learning/Algorithm/Lanqiao",
+          "description": "新题保存目录；已有文件永不覆盖。"
+        },
+        "lanqiao.template": {
+          "type": "string",
+          "default": "~/Code/template.cpp",
+          "description": "新建 main.cpp 使用的现有 C++ 模板。"
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "@vscode/markdown-it-katex": "^1.1.2",
+    "markdown-it": "^15.0.3",
+    "turndown": "^7.2.0"
+  },
+  "devDependencies": {
+    "@types/markdown-it": "^14.2.0",
+    "@types/node": "^22.0.0",
+    "@types/turndown": "^5.0.5",
+    "@types/vscode": "^1.95.0",
+    "@vscode/vsce": "^3.6.0",
+    "esbuild": "^0.25.0",
+    "linkedom": "^0.18.12",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  },
+  "icon": "assets/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/reverse-l/lanqiao-oj-bridge.git"
+  },
+  "homepage": "https://github.com/reverse-l/lanqiao-oj-bridge#readme",
+  "bugs": {
+    "url": "https://github.com/reverse-l/lanqiao-oj-bridge/issues"
+  },
+  "keywords": [
+    "lanqiao",
+    "蓝桥",
+    "蓝桥杯",
+    "CPH",
+    "competitive programming"
+  ]
+}
