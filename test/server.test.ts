@@ -96,3 +96,12 @@ test('第二个窗口端口冲突后不能配对或发送在线任务',async()=>
  assert.equal(s.bridge.connection('3008').canRunOnline,true);
  }finally{await other.close();await s.bridge.close();}
 });
+test('C 任务只交给同题且 C 就绪的协议3页面，旧脚本或 C++ 页不能领取',async()=>{
+ const s=await setup();try{
+ const heartbeat={problemId:'3008',worker:'c',protocol:3,editorReady:true,language:'c'};
+ assert.equal((await s.call('/poll',heartbeat,s.auth)).status,200);assert.equal(s.bridge.connection('3008','c').canRunOnline,true);
+ const j=s.bridge.enqueue({kind:'debug',problemId:'3008',language:'c',sourceName:'main.c',code:'int main(void){}'});
+ for(const h of [{...heartbeat,protocol:2},{...heartbeat,worker:'cpp',language:'cpp'},{...heartbeat,worker:'wrong',problemId:'178'}])assert.equal((await (await s.call('/poll',h,s.auth)).json()).job,null);
+ const take=(await (await s.call('/poll',heartbeat,s.auth)).json()).job;assert.equal(take.id,j.id);assert.equal(take.language,'c');assert.equal(j.sourceName,'main.c');
+ }finally{await s.bridge.close();}
+});

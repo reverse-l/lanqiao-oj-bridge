@@ -1,10 +1,12 @@
 import TurndownService from 'turndown';
 import {SampleCollector} from './sample-collector';
+import {LanguageId,languageOfSource} from './languages';
 
 export interface Sample { input:string; output:string }
 export interface Problem {
  version:1; id:string; title:string; url:string; markdown:string; tests:Sample[];
  timeLimit?:number; memoryLimit?:number;
+ limits?:Partial<Record<LanguageId,{timeLimit?:number;memoryLimit?:number}>>;
 }
 export const OFFICIAL_ORIGINS = new Set(['https://www.lanqiao.cn','https://lanqiao.cn']);
 export function problemId(url:string):string {
@@ -18,7 +20,16 @@ export function validateProblem(value:unknown):Problem {
  if(typeof p.title!=='string'||!p.title.trim()||p.title.length>200||typeof p.markdown!=='string'||p.markdown.length>2_000_000) throw new Error('题面数据无效或过大');
  if(!Array.isArray(p.tests)||p.tests.length>100||p.tests.some(t=>!t||typeof t.input!=='string'||typeof t.output!=='string'||t.input.length>600_000||t.output.length>600_000)) throw new Error('样例数据无效或过大');
  for(const limit of [p.timeLimit,p.memoryLimit]) if(limit!==undefined&&(!Number.isFinite(limit)||limit<=0||limit>1e9)) throw new Error('运行限制无效');
- return {version:1,id:p.id,title:p.title.trim(),url:p.url,markdown:p.markdown,tests:p.tests.map(t=>({input:t.input,output:t.output})),...(p.timeLimit?{timeLimit:p.timeLimit}:{}),...(p.memoryLimit?{memoryLimit:p.memoryLimit}:{})};
+ const limits:Problem['limits']={};
+ if(p.limits!==undefined){
+  if(!p.limits||typeof p.limits!=='object'||Array.isArray(p.limits))throw new Error('语言运行限制无效');
+  for(const language of ['cpp','c'] as const){const value=p.limits[language];if(value===undefined)continue;
+   if(!value||typeof value!=='object'||Array.isArray(value))throw new Error('语言运行限制无效');
+   for(const limit of [value.timeLimit,value.memoryLimit])if(limit!==undefined&&(!Number.isFinite(limit)||limit<=0||limit>1e9))throw new Error('语言运行限制无效');
+   limits[language]={...(value.timeLimit?{timeLimit:value.timeLimit}:{}),...(value.memoryLimit?{memoryLimit:value.memoryLimit}:{})};
+  }
+ }
+ return {version:1,id:p.id,title:p.title.trim(),url:p.url,markdown:p.markdown,tests:p.tests.map(t=>({input:t.input,output:t.output})),...(p.timeLimit?{timeLimit:p.timeLimit}:{}),...(p.memoryLimit?{memoryLimit:p.memoryLimit}:{}),...(Object.keys(limits).length?{limits}:{})};
 }
 export function parseProblem(doc:Document,url:string):Problem {
  const id=problemId(url), source=doc.querySelector('.markdown-body'), title=doc.querySelector('.course-name')?.textContent?.replace(/^\s*\d+\s*[.、．]\s*/,'').trim();
@@ -55,12 +66,17 @@ export function parseProblem(doc:Document,url:string):Problem {
  const formulas:string[]=[];
  body.querySelectorAll('.katex').forEach(e=>{formulas.push(e.textContent||'');e.textContent=`LQFORMULA${formulas.length-1}TOKEN`;});
  let markdown=turndown.turndown(body.outerHTML).replace(/LQFORMULA(\d+)TOKEN/g,(_,i)=>formulas[Number(i)]);
- const cppRow=[...source.querySelectorAll('tr')].find(e=>/^C\+\+\s/.test((e.textContent||'').trim())||e.querySelector('td')?.textContent?.trim()==='C++');
- const cells=cppRow?[...cppRow.querySelectorAll('td')].map(e=>e.textContent||''):[];
- const time=cells[1]?.match(/([\d.]+)\s*(ms|s)/),memory=cells[2]?.match(/([\d.]+)\s*M/i);
+ const limits:Problem['limits']={};
+ for(const row of source.querySelectorAll('tr')){
+  const cells=[...row.querySelectorAll('td')].map(e=>(e.textContent||'').trim());
+  const language=cells[0]==='C++'?'cpp':cells[0]==='C'?'c':undefined;if(!language)continue;
+  const time=cells[1]?.match(/([\d.]+)\s*(ms|s)/),memory=cells[2]?.match(/([\d.]+)\s*M/i);
+  limits[language]={...(time?{timeLimit:Number(time[1])*(time[2]==='s'?1000:1)}:{}),...(memory?{memoryLimit:Number(memory[1])}:{})};
+ }
  markdown=`# ${id} ${title}\n\n原题：[蓝桥 OJ ${id}](${url})\n\n${markdown}\n`;
- return validateProblem({version:1,id,title,url,markdown,tests,...(time?{timeLimit:Number(time[1])*(time[2]==='s'?1000:1)}:{}),...(memory?{memoryLimit:Number(memory[1])}:{})});
+ return validateProblem({version:1,id,title,url,markdown,tests,...limits.cpp,limits});
 }
 export function toCompanion(p:Problem,srcPath:string) {
- return {name:`${p.id}. ${p.title}`,group:'Lanqiao',url:p.url,interactive:false,...(p.timeLimit?{timeLimit:p.timeLimit}:{}),...(p.memoryLimit?{memoryLimit:p.memoryLimit}:{}),tests:p.tests.map((t,i)=>({...t,id:Date.now()+i})),testType:'single',input:{type:'stdin'},output:{type:'stdout'},languages:{java:{mainClass:'Main',taskClass:'Task'}},batch:{id:`lanqiao-${p.id}`,size:1},srcPath};
+ const limits=languageOfSource(srcPath)==='c'?p.limits?.c:p.limits?.cpp||{timeLimit:p.timeLimit,memoryLimit:p.memoryLimit};
+ return {name:`${p.id}. ${p.title}`,group:'Lanqiao',url:p.url,interactive:false,...(limits?.timeLimit?{timeLimit:limits.timeLimit}:{}),...(limits?.memoryLimit?{memoryLimit:limits.memoryLimit}:{}),tests:p.tests.map((t,i)=>({...t,id:Date.now()+i})),testType:'single',input:{type:'stdin'},output:{type:'stdout'},languages:{java:{mainClass:'Main',taskClass:'Task'}},batch:{id:`lanqiao-${p.id}`,size:1},srcPath};
 }

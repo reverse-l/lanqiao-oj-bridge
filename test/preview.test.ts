@@ -47,3 +47,8 @@ test('复制按钮位于代码框容器内；只隐藏生成的原题段落，�
  assert.ok(block.querySelector('[data-copy-block]')?.parentElement===block);
  assert.match(block.querySelector('pre code')!.textContent!,/原题：/);
 });
+test('C 题面绑定 main.c 显示真实语言与切换入口',()=>{
+ const {document}=parseHTML(renderProblemPreview(p,{nonce:'n',cspSource:'vscode-resource:',katexCss:'vscode-resource:/katex.css',source:'/tmp/3008/main.c'}));
+ assert.equal(document.querySelector('[data-action="submit"]')?.textContent,'提交 main.c');assert.match(document.querySelector('.language')!.textContent!,/C（gcc8.3.0）/);assert.doesNotMatch(document.querySelector('.language')!.textContent!,/main.cpp|C\+\+/);assert.ok(document.querySelector('[data-action="switchLanguage"]'));
+ assert.equal(parsePreviewAction({action:'switchLanguage'}),'switchLanguage');assert.equal(parsePreviewAction({action:'switchLanguage',language:'python'}),undefined);
+});

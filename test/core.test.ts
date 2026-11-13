@@ -58,3 +58,21 @@ test('拒绝已存在的符号链接，标题中的路径字符不能逃出 root
  await mkdir(path.join(root,'3010-safe')); await symlink(path.join(outside,'stolen'),path.join(root,'3010-safe','main.cpp'));
  await assert.rejects(()=>importProblem(root,template,{...p,id:'3010',url:url.replace('3008','3010'),title:'safe'}),/符号链接/);
 });
+test('C 导入生成独立 main.c 和样例记录，重复导入保留 C 与 C++ 解法',async()=>{
+ const root=await mkdtemp(path.join(await realpath(tmpdir()),'lanqiao-c-'));const cppTemplate=path.join(root,'template.cpp'),cTemplate=path.join(root,'template.c');
+ await writeFile(cppTemplate,'// CPP TEMPLATE\n');await writeFile(cTemplate,'/* C TEMPLATE */\n');const p=parseProblem(documentOf(),url);
+ const cpp=await importProblem(root,cppTemplate,p);await writeFile(cpp.source,'// CPP SOLUTION');await writeFile(cpp.cphPath,'{"tests":[{"input":"CPP CUSTOM"}]}');
+ const c=await importProblem(root,cTemplate,p,'','c');assert.equal(path.basename(c.source),'main.c');assert.equal(c.directory,cpp.directory);assert.equal(await readFile(c.source,'utf8'),'/* C TEMPLATE */\n');
+ assert.notEqual(c.cphPath,cpp.cphPath);assert.equal(JSON.parse(await readFile(c.cphPath,'utf8')).srcPath,c.source);
+ await writeFile(c.source,'/* C SOLUTION */');await writeFile(c.cphPath,'{"tests":[{"input":"C CUSTOM"}]}');
+ const again=await importProblem(root,'',p,'','c');assert.equal(again.source,c.source);assert.equal(await readFile(c.source,'utf8'),'/* C SOLUTION */');assert.match(await readFile(c.cphPath,'utf8'),/C CUSTOM/);
+ assert.equal(await readFile(cpp.source,'utf8'),'// CPP SOLUTION');assert.match(await readFile(cpp.cphPath,'utf8'),/CPP CUSTOM/);assert.equal(JSON.parse(await readFile(path.join(c.directory,'companion.json'),'utf8')).srcPath,cpp.source);
+});
+test('C 未指定模板时提供基础模板，不依赖或修改 C++ 模板',async()=>{
+ const root=await mkdtemp(path.join(await realpath(tmpdir()),'lanqiao-c-template-'));const c=await importProblem(root,'',parseProblem(documentOf(),url),'','c');
+ assert.equal(path.basename(c.source),'main.c');assert.match(await readFile(c.source,'utf8'),/#include <stdio.h>/);
+});
+test('C 资源限制使用对应语言行，不能误用 C++ 时限',()=>{
+ const doc=documentOf();const table=doc.querySelector('table')!;table.insertAdjacentHTML('beforeend','<tr><td>C</td><td>2s</td><td>128M</td></tr>');
+ const p=parseProblem(doc,url),cc=toCompanion(p,'/tmp/main.c');assert.equal(cc.timeLimit,2000);assert.equal(cc.memoryLimit,128);assert.equal(toCompanion(p,'/tmp/main.cpp').timeLimit,1000);
+});

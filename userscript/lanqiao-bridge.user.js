@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Lanqiao OJ Bridge
 // @namespace    https://github.com/epsilon-local/lanqiao-oj-bridge
-// @version      0.3.1
+// @version      0.4.0
 // @author       reverse-l
 // @license      MIT
 // @homepageURL  https://github.com/reverse-l/lanqiao-oj-bridge
@@ -721,6 +721,17 @@
     }
   };
 
+  // src/languages.ts
+  var LANGUAGES = {
+    cpp: { label: "C++", fileName: "main.cpp", officialLabel: "C++\uFF08g++17\uFF09" },
+    c: { label: "C", fileName: "main.c", officialLabel: "C\uFF08gcc8.3.0\uFF09" }
+  };
+  function requireLanguage(value) {
+    if (value === void 0) return "cpp";
+    if (value === "cpp" || value === "c") return value;
+    throw new Error("\u53EA\u652F\u6301 C++ \u548C C \u8BED\u8A00");
+  }
+
   // src/problem.ts
   var OFFICIAL_ORIGINS = /* @__PURE__ */ new Set(["https://www.lanqiao.cn", "https://lanqiao.cn"]);
   function problemId(url) {
@@ -735,7 +746,18 @@
     if (typeof p.title !== "string" || !p.title.trim() || p.title.length > 200 || typeof p.markdown !== "string" || p.markdown.length > 2e6) throw new Error("\u9898\u9762\u6570\u636E\u65E0\u6548\u6216\u8FC7\u5927");
     if (!Array.isArray(p.tests) || p.tests.length > 100 || p.tests.some((t) => !t || typeof t.input !== "string" || typeof t.output !== "string" || t.input.length > 6e5 || t.output.length > 6e5)) throw new Error("\u6837\u4F8B\u6570\u636E\u65E0\u6548\u6216\u8FC7\u5927");
     for (const limit of [p.timeLimit, p.memoryLimit]) if (limit !== void 0 && (!Number.isFinite(limit) || limit <= 0 || limit > 1e9)) throw new Error("\u8FD0\u884C\u9650\u5236\u65E0\u6548");
-    return { version: 1, id: p.id, title: p.title.trim(), url: p.url, markdown: p.markdown, tests: p.tests.map((t) => ({ input: t.input, output: t.output })), ...p.timeLimit ? { timeLimit: p.timeLimit } : {}, ...p.memoryLimit ? { memoryLimit: p.memoryLimit } : {} };
+    const limits = {};
+    if (p.limits !== void 0) {
+      if (!p.limits || typeof p.limits !== "object" || Array.isArray(p.limits)) throw new Error("\u8BED\u8A00\u8FD0\u884C\u9650\u5236\u65E0\u6548");
+      for (const language of ["cpp", "c"]) {
+        const value2 = p.limits[language];
+        if (value2 === void 0) continue;
+        if (!value2 || typeof value2 !== "object" || Array.isArray(value2)) throw new Error("\u8BED\u8A00\u8FD0\u884C\u9650\u5236\u65E0\u6548");
+        for (const limit of [value2.timeLimit, value2.memoryLimit]) if (limit !== void 0 && (!Number.isFinite(limit) || limit <= 0 || limit > 1e9)) throw new Error("\u8BED\u8A00\u8FD0\u884C\u9650\u5236\u65E0\u6548");
+        limits[language] = { ...value2.timeLimit ? { timeLimit: value2.timeLimit } : {}, ...value2.memoryLimit ? { memoryLimit: value2.memoryLimit } : {} };
+      }
+    }
+    return { version: 1, id: p.id, title: p.title.trim(), url: p.url, markdown: p.markdown, tests: p.tests.map((t) => ({ input: t.input, output: t.output })), ...p.timeLimit ? { timeLimit: p.timeLimit } : {}, ...p.memoryLimit ? { memoryLimit: p.memoryLimit } : {}, ...Object.keys(limits).length ? { limits } : {} };
   }
   function parseProblem(doc, url) {
     const id = problemId(url), source = doc.querySelector(".markdown-body"), title = doc.querySelector(".course-name")?.textContent?.replace(/^\s*\d+\s*[.、．]\s*/, "").trim();
@@ -787,16 +809,21 @@ $$
       e.textContent = `LQFORMULA${formulas.length - 1}TOKEN`;
     });
     let markdown = turndown.turndown(body.outerHTML).replace(/LQFORMULA(\d+)TOKEN/g, (_, i) => formulas[Number(i)]);
-    const cppRow = [...source.querySelectorAll("tr")].find((e) => /^C\+\+\s/.test((e.textContent || "").trim()) || e.querySelector("td")?.textContent?.trim() === "C++");
-    const cells = cppRow ? [...cppRow.querySelectorAll("td")].map((e) => e.textContent || "") : [];
-    const time = cells[1]?.match(/([\d.]+)\s*(ms|s)/), memory = cells[2]?.match(/([\d.]+)\s*M/i);
+    const limits = {};
+    for (const row of source.querySelectorAll("tr")) {
+      const cells = [...row.querySelectorAll("td")].map((e) => (e.textContent || "").trim());
+      const language = cells[0] === "C++" ? "cpp" : cells[0] === "C" ? "c" : void 0;
+      if (!language) continue;
+      const time = cells[1]?.match(/([\d.]+)\s*(ms|s)/), memory = cells[2]?.match(/([\d.]+)\s*M/i);
+      limits[language] = { ...time ? { timeLimit: Number(time[1]) * (time[2] === "s" ? 1e3 : 1) } : {}, ...memory ? { memoryLimit: Number(memory[1]) } : {} };
+    }
     markdown = `# ${id} ${title}
 
 \u539F\u9898\uFF1A[\u84DD\u6865 OJ ${id}](${url})
 
 ${markdown}
 `;
-    return validateProblem({ version: 1, id, title, url, markdown, tests, ...time ? { timeLimit: Number(time[1]) * (time[2] === "s" ? 1e3 : 1) } : {}, ...memory ? { memoryLimit: Number(memory[1]) } : {} });
+    return validateProblem({ version: 1, id, title, url, markdown, tests, ...limits.cpp, limits });
   }
 
   // src/report.ts
@@ -839,13 +866,15 @@ ${markdown}
     if (id !== job.problemId) throw new Error("\u9875\u9762\u9898\u53F7\u4E0E\u4EFB\u52A1\u4E0D\u4E00\u81F4\uFF0C\u5DF2\u505C\u6B62");
     const env = environment(page);
     if (env.submitting) throw new Error("\u7F51\u7AD9\u6B63\u5728\u8FD0\u884C\u6216\u8BC4\u6D4B\uFF0C\u8BF7\u5B8C\u6210\u540E\u624B\u52A8\u91CD\u8BD5");
-    if (env.language !== "cpp") throw new Error("\u8BF7\u5148\u628A\u5B98\u65B9\u7F51\u9875\u7F16\u8BD1\u8BED\u8A00\u5207\u6362\u4E3A C++\uFF08g++17\uFF09\u540E\u91CD\u8BD5");
+    const language = requireLanguage(job.language), label = LANGUAGES[language].officialLabel;
+    if (env.language !== language) throw new Error(`\u8BF7\u5148\u628A\u5B98\u65B9\u7F51\u9875\u7F16\u8BD1\u8BED\u8A00\u5207\u6362\u4E3A ${label} \u540E\u91CD\u8BD5`);
     const button = page.document.querySelector(job.kind === "debug" ? SELECTORS.debug : SELECTORS.submit);
     if (!button || button.disabled) throw new Error("\u539F\u751F\u8C03\u8BD5/\u63D0\u4EA4\u6309\u94AE\u4E0D\u53EF\u7528\uFF0C\u8BF7\u68C0\u67E5\u767B\u5F55\u72B6\u6001\u6216\u7F51\u9875\u6539\u7248");
     backup(env.monacoEditor.getValue());
     env.monacoEditor.setValue(job.code);
     if (env.monacoEditor.getValue() !== job.code) throw new Error("\u5B98\u65B9\u7F16\u8F91\u5668\u4EE3\u7801\u5199\u5165\u6821\u9A8C\u5931\u8D25\uFF0C\u505C\u6B62\u64CD\u4F5C");
-    if (job.kind === "prepare") return { phase: "prepared", message: "\u6700\u65B0\u4EE3\u7801\u5DF2\u586B\u5165\u5B98\u65B9 C++ \u7F16\u8F91\u5668\uFF0C\u8BF7\u7531\u7528\u6237\u70B9\u51FB\u7F51\u7AD9\u539F\u751F\u300C\u63D0\u4EA4\u68C0\u6D4B\u300D\u3002\u6B64\u72B6\u6001\u4E0D\u8868\u793A\u5DF2\u63D0\u4EA4\u3002" };
+    if (env.language !== language) throw new Error("\u4EE3\u7801\u586B\u5165\u671F\u95F4\u7F51\u9875\u8BED\u8A00\u53D1\u751F\u53D8\u5316\uFF0C\u5DF2\u505C\u6B62");
+    if (job.kind === "prepare") return { phase: "prepared", message: `\u6700\u65B0\u4EE3\u7801\u5DF2\u586B\u5165\u5B98\u65B9 ${label} \u7F16\u8F91\u5668\uFF0C\u8BF7\u7531\u7528\u6237\u70B9\u51FB\u7F51\u7AD9\u539F\u751F\u300C\u63D0\u4EA4\u68C0\u6D4B\u300D\u3002\u6B64\u72B6\u6001\u4E0D\u8868\u793A\u5DF2\u63D0\u4EA4\u3002` };
     env.inputSample = job.kind === "debug" ? job.input || "" : "";
     return new Promise((resolve, reject) => {
       const proto = page.XMLHttpRequest.prototype;
@@ -877,7 +906,12 @@ ${markdown}
           payload = typeof body === "string" ? JSON.parse(body) : null;
         } catch {
         }
-        const isSubmit = url === `${base}submit/` && payload?.submit_content === job.code && payload?.is_submit === (job.kind === "submit");
+        const isSubmit = url === `${base}submit/`;
+        if (isSubmit && (payload?.language !== language || payload?.submit_content !== job.code || payload?.is_submit !== (job.kind === "submit"))) {
+          finish(void 0, new Error("\u5B98\u65B9\u8BF7\u6C42\u7684\u8BED\u8A00\u3001\u4EE3\u7801\u6216\u64CD\u4F5C\u7C7B\u578B\u4E0E\u5DF2\u786E\u8BA4\u4EFB\u52A1\u4E0D\u4E00\u81F4\uFF0C\u5DF2\u963B\u6B62\u53D1\u9001"));
+          if (typeof this.abort === "function") this.abort();
+          return;
+        }
         const isReport = url === `${base}submit-report/` && submissionId && payload?.submission_id === submissionId && payload?.is_submit === (job.kind === "submit");
         const isPoll = pollUrls.has(url);
         if (isPoll && !judgingSeen) {
@@ -931,6 +965,7 @@ ${markdown}
       proto.open = open;
       proto.send = send;
       try {
+        if (env.language !== language) throw new Error("\u7F51\u9875\u8BED\u8A00\u5DF2\u53D8\u5316\uFF0C\u505C\u6B62\u53D1\u9001");
         button.click();
       } catch (error) {
         finish(void 0, error);
@@ -1001,7 +1036,7 @@ ${markdown}
     }
     running = true;
     try {
-      const { job } = await request("/poll", { problemId: id, worker, protocol: 2, ...editorReadiness(unsafeWindow) });
+      const { job } = await request("/poll", { problemId: id, worker, protocol: 3, ...editorReadiness(unsafeWindow) });
       status("\u5DF2\u8FDE\u63A5 VSCode");
       if (job) {
         status(job.kind === "debug" ? "\u5B98\u65B9\u5728\u7EBF\u8C03\u8BD5\u4E2D\u2026" : job.kind === "submit" ? "\u5B98\u65B9\u63D0\u4EA4\u4E2D\u2026" : "\u586B\u5165\u4EE3\u7801\u2026");

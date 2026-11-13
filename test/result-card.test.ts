@@ -44,3 +44,7 @@ test('未持有服务的第二窗口不能把另一窗口的活动请求标为�
  assert.equal(readOnly[0].state,'queued');assert.equal(readOnly[0].result,undefined);
  assert.ok(!JSON.stringify(readOnly).includes('SECRET'));
 });
+test('C 运行结果显示文件与语言，旧 C++ 历史继续可读',()=>{
+ const html=renderResultCard({id:'c-job',problemId:'3008',kind:'debug',language:'c',sourceName:'main.c',state:'finished',created:1,result:{phase:'done',stdout:'1\n'}});
+ assert.match(html,/main\.c/);assert.match(html,/C（gcc8\.3\.0）/);
+});

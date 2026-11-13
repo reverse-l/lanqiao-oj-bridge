@@ -1,5 +1,6 @@
 import {httpFailure,interpretReport,PlatformResult} from '../report';
 import type {JobRequest} from '../bridge';
+import {LANGUAGES,requireLanguage} from '../languages';
 
 // 唯一依赖蓝桥当前 Vue 2 / Monaco DOM 的模块；不读取 Cookie、JWT 或登录存储。
 export const SELECTORS={environment:'.online-judge-env',debug:'button.debug',submit:'#oj-submit-btn',title:'.course-name',statement:'.markdown-body'};
@@ -18,12 +19,14 @@ export async function executeOfficial(page:Window,job:JobRequest,progress:(r:Pla
  if(id!==job.problemId)throw new Error('页面题号与任务不一致，已停止');
  const env=environment(page);
  if(env.submitting)throw new Error('网站正在运行或评测，请完成后手动重试');
- if(env.language!=='cpp')throw new Error('请先把官方网页编译语言切换为 C++（g++17）后重试');
+ const language=requireLanguage(job.language),label=LANGUAGES[language].officialLabel;
+ if(env.language!==language)throw new Error(`请先把官方网页编译语言切换为 ${label} 后重试`);
  const button=page.document.querySelector<HTMLButtonElement>(job.kind==='debug'?SELECTORS.debug:SELECTORS.submit);
  if(!button||button.disabled)throw new Error('原生调试/提交按钮不可用，请检查登录状态或网页改版');
  backup(env.monacoEditor.getValue());env.monacoEditor.setValue(job.code);
  if(env.monacoEditor.getValue()!==job.code)throw new Error('官方编辑器代码写入校验失败，停止操作');
- if(job.kind==='prepare')return {phase:'prepared',message:'最新代码已填入官方 C++ 编辑器，请由用户点击网站原生「提交检测」。此状态不表示已提交。'};
+ if(env.language!==language)throw new Error('代码填入期间网页语言发生变化，已停止');
+ if(job.kind==='prepare')return {phase:'prepared',message:`最新代码已填入官方 ${label} 编辑器，请由用户点击网站原生「提交检测」。此状态不表示已提交。`};
  env.inputSample=job.kind==='debug'?job.input||'':'';
  return new Promise<PlatformResult>((resolve,reject)=>{
   const proto=(page as any).XMLHttpRequest.prototype;
@@ -42,7 +45,11 @@ export async function executeOfficial(page:Window,job:JobRequest,progress:(r:Pla
   const send=function(this:XMLHttpRequest,body:any){
    const url=urls.get(this)||'';const base=`${page.location.origin}/api/v2/problems/${job.problemId}/`;
    let payload:any;try{payload=typeof body==='string'?JSON.parse(body):null;}catch{}
-   const isSubmit=url===`${base}submit/`&&payload?.submit_content===job.code&&payload?.is_submit===(job.kind==='submit');
+   const isSubmit=url===`${base}submit/`;
+   if(isSubmit&&(payload?.language!==language||payload?.submit_content!==job.code||payload?.is_submit!==(job.kind==='submit'))){
+    finish(undefined,new Error('官方请求的语言、代码或操作类型与已确认任务不一致，已阻止发送'));
+    if(typeof this.abort==='function')this.abort();return;
+   }
    const isReport=url===`${base}submit-report/`&&submissionId&&payload?.submission_id===submissionId&&payload?.is_submit===(job.kind==='submit');
    const isPoll=pollUrls.has(url);
    if(isPoll&&!judgingSeen){judgingSeen=true;progress({phase:'judging',submissionId,message:'网站正在查询官方运行 / 评测状态。'});}
@@ -70,6 +77,6 @@ export async function executeOfficial(page:Window,job:JobRequest,progress:(r:Pla
   };
   proto.open=open;proto.send=send;
   // 使用网站原生按钮，官方代码负责认证、验证码、限流和评测轮询。
-  try{button.click();}catch(error){finish(undefined,error as Error);}
+  try{if(env.language!==language)throw new Error('网页语言已变化，停止发送');button.click();}catch(error){finish(undefined,error as Error);}
  });
 }

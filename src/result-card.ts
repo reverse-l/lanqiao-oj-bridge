@@ -1,5 +1,6 @@
 import type {Job} from './bridge';
 import {displayResult,usesInputDebug} from './output';
+import {LANGUAGES} from './languages';
 import {COPY_ICON} from './copy-icon';
 export type SavedJob=Omit<Job,'code'|'input'>;
 export const escapeHtml=(value:string)=>value.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
@@ -13,7 +14,7 @@ export function renderResultCard(job?:SavedJob):string {
  const stream=(key:'stdout'|'stderr',label:string,action:string)=>`<details ${key==='stderr'&&r?.stderr?'open':''}><summary>${label}</summary><div class="copy-block">${r?.[key]!==undefined?`<button type="button" class="copy-button" data-action="${action}" aria-label="复制${label}" title="复制${label}">${COPY_ICON}</button>`:''}<pre>${r?.[key]===undefined?'未提供':r[key]===''?'（空）':text(r[key])}</pre></div></details>`;
  const cases=r?.testCases?.map((value,index)=>{const c=value&&typeof value==='object'?value as Record<string,unknown>:{};return `<tr><td>${index+1}</td><td>${text(c.result??c.status)}</td><td>${text(c.millisecond)}</td><td>${text(c.memory)}</td></tr>`;}).join('');
  return `<section class="result-card" aria-label="官方结果"><div class="result-heading"><strong>${job.kind==='debug'?'官方在线自测':job.kind==='submit'?'正式提交':'网页填入'}</strong> <span>#${escapeHtml(job.problemId)}</span><span class="verdict">${text(verdict)}</span></div>
-<p class="result-date">${text(new Date(job.created).toLocaleString())} · ${inputDebug?'使用指定输入，仅展示执行结果':job.kind==='debug'?'官方调试':'官方记录以蓝桥网页为准'}</p>
+<p class="result-date">${text(new Date(job.created).toLocaleString())} · ${text(LANGUAGES[job.language||'cpp'].officialLabel)} · ${text(job.sourceName||'main.cpp')} · ${inputDebug?'使用指定输入，仅展示执行结果':job.kind==='debug'?'官方调试':'官方记录以蓝桥网页为准'}</p>
 ${r?.message?`<p class="platform-message">${text(r.message)}</p>`:''}
 ${phase==='unknown'?'<p>无法确认最终结果。请先查看官方记录，避免重复提交。</p><button data-action="open">打开原题查看官方记录</button>':''}
 <dl class="metrics"><div><dt>运行时间（ms）</dt><dd data-field="runtime">${text(r?.runtime)}</dd></div><div><dt>内存（平台 kb）</dt><dd data-field="memory">${text(r?.memory)}</dd></div>${inputDebug?'':`<div><dt>通过率（%）</dt><dd>${text(r?.passRate)}</dd></div>`}</dl>

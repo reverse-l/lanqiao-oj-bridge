@@ -1,9 +1,9 @@
 {
   "name": "lanqiao-oj-bridge",
   "displayName": "Lanqiao OJ Bridge",
-  "description": "蓝桥 OJ 题面导入、CPH 样例、官方在线调试与确认提交",
-  "publisher": "epsilon-local",
-  "version": "0.3.4",
+  "description": "蓝桥 OJ 题面导入、C / C++ 解法、CPH 样例、官方在线调试与确认提交",
+  "publisher": "epsilon-dev",
+  "version": "0.4.0",
   "license": "MIT",
   "engines": {
     "vscode": "^1.95.0"
@@ -25,7 +25,7 @@
     "build": "node scripts/build.mjs",
     "check": "tsc --noEmit",
     "test": "node --import tsx --test test/*.test.ts",
-    "package": "npm run build && vsce package --no-dependencies --allow-missing-repository -o artifacts/lanqiao-oj-bridge-0.3.4.vsix"
+    "package": "npm run build && vsce package --no-dependencies --allow-missing-repository -o artifacts/lanqiao-oj-bridge-0.4.0.vsix"
   },
   "contributes": {
     "commands": [
@@ -77,18 +77,22 @@
       {
         "command": "lanqiao.revoke",
         "title": "Lanqiao: 撤销浏览器授权"
+      },
+      {
+        "command": "lanqiao.switchLanguage",
+        "title": "Lanqiao: 切换解题语言（C / C++）"
       }
     ],
     "menus": {
       "editor/title": [
         {
           "command": "lanqiao.preview",
-          "when": "resourceExtname == .cpp || resourceFilename == README.md",
+          "when": "(resourceExtname == .cpp || resourceExtname == .c) || resourceFilename == README.md",
           "group": "navigation@1"
         },
         {
           "command": "lanqiao.actions",
-          "when": "resourceExtname == .cpp",
+          "when": "(resourceExtname == .cpp || resourceExtname == .c)",
           "group": "navigation"
         }
       ]
@@ -112,6 +116,20 @@
           "type": "string",
           "default": "~/Code/template.cpp",
           "description": "新建 main.cpp 使用的现有 C++ 模板。"
+        },
+        "lanqiao.defaultLanguage": {
+          "type": "string",
+          "enum": [
+            "cpp",
+            "c"
+          ],
+          "default": "cpp",
+          "description": "新导入题目的默认语言；已有题目可通过切换解题语言创建另一份解法。"
+        },
+        "lanqiao.cTemplate": {
+          "type": "string",
+          "default": "",
+          "description": "C 模板文件路径；留空使用内置基础 C 模板。与现有 C++ 模板独立。"
         }
       }
     }
@@ -132,7 +150,7 @@
     "tsx": "^4.20.0",
     "typescript": "^5.9.0"
   },
-  "icon": "assets/icon.png",
+  "icon": "assets/icon-marketplace.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/reverse-l/lanqiao-oj-bridge.git"

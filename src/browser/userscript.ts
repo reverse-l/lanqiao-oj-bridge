@@ -27,7 +27,7 @@ async function poll(){
  let id:string;try{id=problemId(location.href);}catch{return;}
  running=true;
  try{
-  const {job}=await request('/poll',{problemId:id,worker,protocol:2,...editorReadiness(unsafeWindow)});status('已连接 VSCode');
+  const {job}=await request('/poll',{problemId:id,worker,protocol:3,...editorReadiness(unsafeWindow)});status('已连接 VSCode');
   if(job){
    status(job.kind==='debug'?'官方在线调试中…':job.kind==='submit'?'官方提交中…':'填入代码…');
    let chain=Promise.resolve();

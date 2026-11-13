@@ -17,7 +17,7 @@ await build({entryPoints:['src/webview/main.ts'],outfile:'dist/preview-client.js
 const header=`// ==UserScript==
 // @name         Lanqiao OJ Bridge
 // @namespace    https://github.com/epsilon-local/lanqiao-oj-bridge
-// @version      0.3.1
+// @version      0.4.0
 // @author       reverse-l
 // @license      MIT
 // @homepageURL  https://github.com/reverse-l/lanqiao-oj-bridge

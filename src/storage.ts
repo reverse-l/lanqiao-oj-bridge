@@ -2,6 +2,7 @@ import {lstat, mkdir, readdir, readFile, writeFile} from 'node:fs/promises';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
 import {Problem,toCompanion,validateProblem} from './problem';
+import {LanguageId,LANGUAGES,C_TEMPLATE,requireLanguage} from './languages';
 
 export async function rejectSymlinks(target:string):Promise<void> {
  const absolute=path.resolve(target);let part=path.parse(absolute).root;
@@ -37,19 +38,21 @@ export async function restoreEmptyCphProblem(value:Problem,source:string,saveLoc
  await rejectSymlinks(file);await writeFile(file,JSON.stringify({...existing,tests:toCompanion(p,source).tests}));
  return {restored:true,path:file,backup};
 }
-export async function importProblem(root:string,template:string,value:Problem,cphLocation='') {
+export async function importProblem(root:string,template:string,value:Problem,cphLocation='',language:LanguageId='cpp') {
+ language=requireLanguage(language);
  const p=validateProblem(value);root=path.resolve(root);await rejectSymlinks(root);await mkdir(root,{recursive:true});
  const entries=(await readdir(root)).filter(n=>n.startsWith(`${p.id}-`));
  if(entries.length>1) throw new Error(`题号 ${p.id} 对应多个目录，请手动整理后重试`);
  const title=p.title.replace(/[\x00-\x1f\x7f/\\:*?"<>|]/g,'_').replace(/^\.+|\.+$/g,'_').slice(0,90)||'题目';
  const directory=path.join(root,entries[0]||`${p.id}-${title}`);await rejectSymlinks(directory);await mkdir(directory,{recursive:true});
- const source=path.join(directory,'main.cpp');
+ const source=path.join(directory,LANGUAGES[language].fileName);
  await rejectSymlinks(source);
  let exists=false;try{await lstat(source);exists=true;}catch(e){if((e as NodeJS.ErrnoException).code!=='ENOENT')throw e;}
- const created=exists?false:await createOnly(source,await readFile(template,'utf8'));
+ const created=exists?false:await createOnly(source,language==='c'&&!template?C_TEMPLATE:await readFile(template,'utf8'));
  await createOnly(path.join(directory,'README.md'),p.markdown);
  await createOnly(path.join(directory,'.lanqiao.json'),JSON.stringify(p,null,2)+'\n');
  await createOnly(path.join(directory,'companion.json'),JSON.stringify(toCompanion(p,source),null,2)+'\n');
+ await createOnly(path.join(directory,`companion.${language}.json`),JSON.stringify(toCompanion(p,source),null,2)+'\n');
  const samples=path.join(directory,'samples');await rejectSymlinks(samples);await mkdir(samples,{recursive:true});
  for(const [i,t] of p.tests.entries()) {await createOnly(path.join(samples,`${i+1}.in`),t.input);await createOnly(path.join(samples,`${i+1}.out`),t.output);}
  const {path:cphPath}=await ensureCphProblem(p,source,cphLocation);

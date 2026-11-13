@@ -11,3 +11,4 @@ userscript/**
 .DS_Store
 tsconfig.json
 package-lock.json
+assets/icon.png

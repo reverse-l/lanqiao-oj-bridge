@@ -5,8 +5,9 @@ import type {ConnectionState} from './connection';
 import type {SavedJob} from './result-card';
 import {renderResultCard} from './result-card';
 import {COPY_ICON} from './copy-icon';
+import {LANGUAGES,languageOfSource,sourceName} from './languages';
 
-export const PREVIEW_ACTIONS=['sendToCph','localTest','debug','submit','recent','open','check','pair','copyOutput','copyError','copyId','copyMarkdown'] as const;
+export const PREVIEW_ACTIONS=['sendToCph','localTest','debug','submit','recent','open','check','pair','copyOutput','copyError','copyId','copyMarkdown','switchLanguage'] as const;
 export type PreviewAction=typeof PREVIEW_ACTIONS[number];
 export function parsePreviewAction(value:unknown):PreviewAction|undefined {
  if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).length!==1)return;
@@ -17,6 +18,7 @@ const escape=(s:string)=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 export function markdownCodeBlocks(markdown:string):string[]{return new MarkdownIt().parse(markdown,{}).filter(t=>t.type==='fence'||t.type==='code_block').map(t=>t.content);}
 export interface PreviewResources {nonce:string;cspSource:string;katexCss:string;clientJs?:string;source?:string;scrollY?:number;connection?:ConnectionState;job?:SavedJob;imageUri?:(src:string)=>string}
 export function renderProblemPreview(p:Problem,resources:PreviewResources):string {
+ const language=languageOfSource(resources.source||'')||'cpp',profile=LANGUAGES[language],fileName=sourceName(resources.source||profile.fileName);
  const md=new MarkdownIt({html:false,linkify:false,typographer:false}).use(markdownItKatex,{throwOnError:false,trust:false,strict:'ignore',maxExpand:1000,maxSize:20});
  md.validateLink=(link:string)=>/^(https?:\/\/|#)/i.test(link);
  let blockIndex=0;
@@ -53,10 +55,11 @@ h1{font-size:30px;line-height:1.35;margin:0 0 18px;font-weight:650}h1 .number{co
 <button type="button" class="primary" data-action="sendToCph">发送至 CPH</button>
 <button type="button" data-action="localTest">本地测试</button>
 <button type="button" data-action="debug" ${resources.connection?.canRunOnline?'':'disabled'}>OJ 在线调试</button>
-<button type="button" class="primary" data-action="submit" ${resources.connection?.canRunOnline?'':'disabled'}>提交 main.cpp</button>
+<button type="button" class="primary" data-action="submit" ${resources.connection?.canRunOnline?'':'disabled'}>提交 ${escape(fileName)}</button>
+<button type="button" data-action="switchLanguage">切换语言</button>
 <button type="button" data-action="recent">查看评测</button>
 <button type="button" data-action="open">打开原题</button>
-</nav><p class="language">在线：C++（g++17）　·　本地：现有 CPH 编译配置　·　提交文件：本题 main.cpp</p>
+</nav><p class="language">在线：${escape(profile.officialLabel)}　·　本地：现有 CPH ${escape(profile.label)} 配置　·　提交文件：${escape(fileName)}</p>
 <div id="status" class="status" role="status" aria-live="polite"></div><div id="result">${renderResultCard(resources.job)}</div><hr></header>
 <div class="statement-tools"><button type="button" data-action="copyMarkdown">复制题面 Markdown</button></div><article>${content}</article>
 <script nonce="${escape(resources.nonce)}" src="${escape(resources.clientJs||'vscode-resource:/preview-client.js')}"></script></body></html>`;
