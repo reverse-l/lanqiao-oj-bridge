@@ -3,12 +3,25 @@ import {SampleCollector} from './sample-collector';
 import {LanguageId,languageOfSource} from './languages';
 
 export interface Sample { input:string; output:string }
+export type ProblemSource = 'lanqiao-oj' | 'lanqiao-course';
 export interface Problem {
  version:1; id:string; title:string; url:string; markdown:string; tests:Sample[];
+ source?: ProblemSource; courseUrl?: string;
  timeLimit?:number; memoryLimit?:number;
  limits?:Partial<Record<LanguageId,{timeLimit?:number;memoryLimit?:number}>>;
 }
 export const OFFICIAL_ORIGINS = new Set(['https://www.lanqiao.cn','https://lanqiao.cn']);
+export function normalizeCourseUrl(value: unknown): string {
+ if (typeof value !== 'string' || value.length > 2000) throw new Error('课程 URL 无效');
+ let url: URL;
+ try { url = new URL(value); } catch { throw new Error('课程 URL 无效'); }
+ const course = url.pathname.match(/^\/courses\/(\d{1,10})\/learning\/?$/);
+ const units = url.searchParams.getAll('id');
+ if (!OFFICIAL_ORIGINS.has(url.origin) || url.username || url.password || !course || units.length !== 1 || !/^\d{1,10}$/.test(units[0])) {
+  throw new Error('课程 URL 无效');
+ }
+ return `${url.origin}/courses/${course[1]}/learning/?id=${units[0]}`;
+}
 export function problemId(url:string):string {
  const u=new URL(url); const match=u.pathname.match(/^\/problems\/(\d+)\/(?:learning\/?)?$/);
  if(!OFFICIAL_ORIGINS.has(u.origin)||u.username||u.password||!match) throw new Error('不是受支持的蓝桥题目 URL');
@@ -29,7 +42,9 @@ export function validateProblem(value:unknown):Problem {
    limits[language]={...(value.timeLimit?{timeLimit:value.timeLimit}:{}),...(value.memoryLimit?{memoryLimit:value.memoryLimit}:{})};
   }
  }
- return {version:1,id:p.id,title:p.title.trim(),url:p.url,markdown:p.markdown,tests:p.tests.map(t=>({input:t.input,output:t.output})),...(p.timeLimit?{timeLimit:p.timeLimit}:{}),...(p.memoryLimit?{memoryLimit:p.memoryLimit}:{}),...(Object.keys(limits).length?{limits}:{})};
+ const courseUrl = p.courseUrl === undefined ? undefined : normalizeCourseUrl(p.courseUrl);
+ if (p.source !== undefined && p.source !== (courseUrl ? 'lanqiao-course' : 'lanqiao-oj')) throw new Error('题目来源与链接不一致');
+ return {version:1,id:p.id,title:p.title.trim(),url:p.url,markdown:p.markdown,tests:p.tests.map(t=>({input:t.input,output:t.output})),...(p.source?{source:p.source}:{}),...(courseUrl?{courseUrl}:{}),...(p.timeLimit?{timeLimit:p.timeLimit}:{}),...(p.memoryLimit?{memoryLimit:p.memoryLimit}:{}),...(Object.keys(limits).length?{limits}:{})};
 }
 export function parseProblem(doc:Document,url:string):Problem {
  const id=problemId(url), source=doc.querySelector('.markdown-body'), title=doc.querySelector('.course-name')?.textContent?.replace(/^\s*\d+\s*[.、．]\s*/,'').trim();

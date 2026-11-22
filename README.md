@@ -4,131 +4,108 @@
 >
 > **Lanqiao OJ Bridge 为爱好者独立开发的学习辅助工具，非蓝桥官方产品，未获得蓝桥杯组委会授权，仅用于备赛学习，无商业用途。**
 >
-> 本项目当前免费提供，作者不通过本项目收费或售卖题目。
+> 本项目免费提供，作者不通过本项目收费或售卖题目。
 
-把蓝桥 OJ 题面、CPH 本地样例和官方在线调试连接到 VSCode。使用自己已登录的蓝桥网页，不需要提供 Cookie、JWT 或密码。本项目独立开发，与蓝桥官方无隶属关系。
+把当前蓝桥 OJ 题目或蓝桥云课编程练习导入 VSCode。在本地阅读题面、编写 C / C++、用 CPH 跑样例，也可以通过已登录的蓝桥网页调用官方调试和正式评测。
 
-**需要同时安装 VSCode 扩展和 Tampermonkey 脚本。脚本单独安装不能完成桥接。**
+本说明适用于 **VSCode 扩展 0.7.4 + 脚本猫（ScriptCat）用户脚本 0.6.0**。在同一台电脑安装 VSCode 扩展，并通过脚本猫安装 Lanqiao OJ Bridge 用户脚本，即可网页导入、官方调试或提交。打开以前导入的本地题目、搜索和复盘可以离线使用。
 
-- [VSCode Marketplace](https://marketplace.visualstudio.com/items?itemName=epsilon-dev.lanqiao-oj-bridge) / [下载 VSIX 安装包](https://github.com/reverse-l/lanqiao-oj-bridge/releases/latest)
-- [ScriptCat 安装 / 更新脚本](https://scriptcat.org/zh-CN/script-show-page/9067) / [GitHub 脚本镜像](https://raw.githubusercontent.com/reverse-l/lanqiao-oj-bridge/main/userscript/lanqiao-bridge.user.js)
-- [反馈问题](https://github.com/reverse-l/lanqiao-oj-bridge/issues)
+- [安装或更新 VSCode 扩展](https://marketplace.visualstudio.com/items?itemName=epsilon-dev.lanqiao-oj-bridge) · [下载 VSIX](https://github.com/reverse-l/lanqiao-oj-bridge/releases)
+- [从 ScriptCat 安装浏览器脚本](https://scriptcat.org/zh-CN/script-show-page/9067) · [GitHub 脚本镜像](https://raw.githubusercontent.com/reverse-l/lanqiao-oj-bridge/main/userscript/lanqiao-bridge.user.js)
+- [版本记录](https://github.com/reverse-l/lanqiao-oj-bridge/blob/main/CHANGELOG.md) · [反馈问题](https://github.com/reverse-l/lanqiao-oj-bridge/issues)
 
-版本信息：VSCode 扩展安装包以商店和 GitHub Release 的下载页为准，源码版本见 `package.json`；浏览器脚本版本以 ScriptCat 或脚本头部为准。扩展与脚本分别维护版本号，不要求数字相同。脚本通过 [ScriptCat](https://scriptcat.org/zh-CN/script-show-page/9067) 和 GitHub 分发，暂未发布 Greasy Fork。
+## 安装与更新
 
-0.4.4 默认关闭诊断日志，发送至 CPH 不再主动打开输出面板。仅排错时可在设置中开启 `Lanqiao Diagnostics`；无需重载，排错后关闭即可。正常错误提示与官方运行 / 评测结果不受影响。
+1. 在桌面版 VSCode 1.95 或以上版本安装 `epsilon-dev.lanqiao-oj-bridge`。离线安装时，在「扩展 → … → 从 VSIX 安装」选择安装包，然后按提示重载。
+2. 在浏览器安装并启用脚本猫（ScriptCat），再从脚本猫发布页安装 **Lanqiao OJ Bridge** 用户脚本。浏览器提示时允许用户脚本运行，更新后刷新蓝桥网页。[脚本猫安装指南](https://docs.scriptcat.org/docs/use/use) · [Lanqiao OJ Bridge 脚本发布页](https://scriptcat.org/zh-CN/script-show-page/9067)
+3. 在 VSCode 设置中搜索 `Lanqiao`。按需设置 `lanqiao.root`（保存题目）和 `lanqiao.template`（已存在的 C++ 模板）。C 的 `lanqiao.cTemplate` 留空时使用内置模板。Windows 可把题目目录设为 `D:/Code/Algorithm/Lanqiao`。
+4. 在 VSCode 运行 `Lanqiao: 配对`。正常登录蓝桥并打开题目，展开网页边缘的拱桥浮球，点「配对」输入 VSCode 显示的一次性配对码。配对码有效期为 5 分钟。
+5. 在网页浮球菜单点「导入 VSCode」。需要运行本地样例时，在 VSCode 安装 CPH 并配置本机 C 或 C++ 编译器。[安装 CPH](https://marketplace.visualstudio.com/items?itemName=DivyanshuAgrawal.competitive-programming-helper)
 
-## v0.4.3：简洁界面与语言记忆
+已安装相同扩展 ID 时可直接更新。已有配对通常可以继续使用。若以前使用的是测试版 `epsilon-local.lanqiao-oj-bridge`，先禁用旧扩展以释放端口，再在新版配对。可以运行 `Lanqiao: 导入已有题目记录` 登记原有题目文件。旧标签、提交快照和复盘笔记仍位于旧扩展的本地存储。
 
-点击题目标题旁的 `C` / `C++` 标记即可切换语言，悬停查看编译器和文件。选择会被记住：新题沿用最近选择，已有题目保留各自语言；重新导入及从 README 打开可恢复。明确打开某份源码时，以该文件为准。只保存本扩展的语言设置，不修改 CPH 或 Code Runner 配置。
+## 做题与评测
 
-提交按钮显示“提交”，实际语言与文件仍在提交确认框中核对。连接说明放在悬停提示中，成功反馈短暂显示，错误继续提示。评测仅显示测试点总数与通过汇总，不再打印逐点 JSON；指定输入调试仍只展示执行结果。
+导入后通常左边编辑源码，右边显示带按钮的蓝桥交互题面。题面保留可提取的公式、代码块、样例和图片链接。描述标题旁可复制完整 Markdown，样例框内可复制输入或输出。
 
-## v0.4.0：C / C++
+- 点击题面标题旁的 **C / C++** 标记切换语言。扩展会记住每道题的选择，新题默认使用最近选定的默认语言。
+- 通过右侧题面、状态栏「蓝桥 #题号」或命令面板中的 `Lanqiao: 题目操作` 打开相关功能。在源码或题目的 `README.md` 中也可以运行 `Lanqiao: 打开题面`。
+- 网页浮球可移动、贴边和收起，位置会记住。找不到时，可在脚本菜单选择「重置浮球位置」。云课仅在当前单元加载了官方 OJ 编辑器的编程练习中显示导入入口。
 
-首次安装默认使用 C++。点击已导入题面的语言标记选择 C，或运行 `Lanqiao: 切换解题语言（C / C++）`，会在同一题目目录创建 / 打开独立 `main.c`，保留 `main.cpp`、笔记和已有自定义测试。也可将 `lanqiao.defaultLanguage` 设为 `c`，用于新题导入。
-
-C 模板配置 `lanqiao.cTemplate` 留空使用内置基础模板，指定路径时使用自己的 C 模板；原 `lanqiao.template` 继续只用于 C++。CPH 根据当前源码扩展名使用现有 C 或 C++ 配置，本工具不修改编译器和全局配置。每份源码分别关联 CPH 测试，兼容数据另外保存为 `companion.c.json` / `companion.cpp.json`。
-
-C 在线操作需要同时更新 VSIX 与脚本至 0.4.0，刷新网页；配对和脚本权限保留。网页需手动选择 **C（gcc8.3.0）**，C++ 继续选择 **C++（g++17）**。任务只交给同题同语言页面；语言不一致时停止，避免误提交。题面、确认框、运行历史显示对应文件和语言，既有 C++ 记录继续可读。旧脚本仍可用于 C++，C 在线操作会提示更新。Python 暂不支持。
-
-从 [VSCode Marketplace](https://marketplace.visualstudio.com/items?itemName=epsilon-dev.lanqiao-oj-bridge) 更新扩展，或使用对应版本的 `.vsix` 离线安装。已安装的 0.4.0 配套脚本可继续使用。
-
-## 安装与首次配对
-
-Windows 可将题目保存到其他盘：`Ctrl+,` 打开设置，搜索 `Lanqiao Root`，例如填写 `D:/Code/Algorithm/Lanqiao`。也可在用户设置 JSON 中设置 `"lanqiao.root": "D:/Code/Algorithm/Lanqiao"`。这只影响后续导入位置，旧题目不会自动搬迁；C++ 模板位置由 `lanqiao.template` 独立设置。无需修改扩展代码或 CPH 配置。
-
-1. 准备 VSCode 1.95+、浏览器中的 Tampermonkey，以及自己的蓝桥账号。需要本地测试时安装 [Competitive Programming Helper（CPH）](https://marketplace.visualstudio.com/items?itemName=DivyanshuAgrawal.competitive-programming-helper)，配置自己的 C++ 编译器。
-2. 在 VSCode 扩展市场搜索 `epsilon-dev.lanqiao-oj-bridge` 安装，或从 [Releases](https://github.com/reverse-l/lanqiao-oj-bridge/releases/latest) 下载 `.vsix`，在 VSCode 扩展视图右上角 `…` →「从 VSIX 安装」，重载窗口。Marketplace 扩展标识为 `epsilon-dev.lanqiao-oj-bridge`。此前通过 VSIX 安装的 `epsilon-local.lanqiao-oj-bridge` 属于不同扩展；迁移时先卸载旧版，再安装 Marketplace 版本并重新配对，原有题目目录和代码可继续使用。
-3. 安装并启用 Tampermonkey，点击上方脚本安装链接，检查后安装。若浏览器只显示源码，可下载 Release 中的 `lanqiao-bridge.user.js`，在 Tampermonkey 管理面板 →「实用工具」→「从文件导入」。按浏览器和 Tampermonkey 的提示允许用户脚本运行。
-4. VSCode 设置搜索 `Lanqiao`，指定自己的题目目录 `lanqiao.root` 和**已存在**的 C++ 模板 `lanqiao.template`。默认分别是 `~/Code/Learning/Algorithm/Lanqiao`、`~/Code/template.cpp`；其他用户可选择自己的路径。模板不存在时先创建或指定模板。
-5. 命令面板运行 `Lanqiao: 配对`。正常登录并打开 [蓝桥题目页](https://www.lanqiao.cn/problems/3008/learning/)，在左下角点「配对」，输入 VSCode 显示的一次性配对码（5 分钟有效）。**配对码不是蓝桥登录凭据，每位用户在自己电脑上独立配对。**
-6. 网页点击「导入 VSCode」。生成题面、模板代码和样例，打开题面与 C++ 文件。在线操作时保持对应题目的已配对网页打开。
-
-使用打包扩展不需要额外安装 Node.js；Node.js 只用于开发。CPH、编译器、Tampermonkey 和浏览器需要自行安装。
-
-## 日常使用
-
-题面标题下有「发送至 CPH」「本地测试」「OJ 在线调试」「提交」「查看评测」「打开原题」。点击标题旁的 C / C++ 标记切换语言。已有题目可打开 `main.cpp`、`main.c` 或 `README.md`，运行 `Lanqiao: 打开题面（含操作按钮）`。预览按钮绑定当前题目，切换编辑器后不会操作其他题。
-
-题面开始处可「复制题面 Markdown」，复制当前已保存的完整 README（含来源、公式和图片链接），不会附带解题代码。样例、代码块和运行输出的复制图标位于框内，鼠标悬停或键盘聚焦时显示。
-
-| 操作 | 实际含义 |
+| 操作 | 实际行为 |
 | --- | --- |
-| 本地测试 | 现有 CPH + 用户原有编译配置，不是官方评测 |
-| 在线调试 → 样例 / 自定义输入文件 | 把输入原样交给官方调试，展示输出与真实执行错误，不显示 AC/WA、答案错误等判题结论 |
-| 在线调试 → 调试 | 不传自定义输入，使用官方原生调试方式，保留平台原始状态 |
-| 提交当前代码 | 保存代码，显示题号、文件、语言及 SHA-256；用户确认后通过已登录网页正式提交 |
-| 填入网页代码（手动提交） | 只填入官方编辑器，由用户点击网站原生按钮 |
-| 查看最近提交 | 查看本扩展记录；全量官方历史请在蓝桥题目页查看 |
+| 发送至 CPH | 将可提取的样例关联到当前源码，并打开 VSCode 的 CPH 面板。已有自定义样例会保留。 |
+| 本地测试 | 使用 CPH 和本机编译器运行样例。 |
+| 调试 → 样例 | 把选中的题面输入交给蓝桥官方调试，展示平台返回的输出和执行错误。 |
+| 调试 → 调试 | 使用蓝桥网页的原生调试方式，按平台实际返回的信息展示结果。 |
+| 提交 | **点击即保存当前代码并发起正式提交，无二次确认。** 扩展先保存提交快照，成功后才发送任务。 |
+| 填入网页代码 | 将代码填入官方编辑器，由你点击网页上的提交按钮。 |
+| 查看评测 | 在 VSCode 中查看扩展记录的本题结果。网页中可查看完整官方记录。 |
 
-官方语言选择器当前标签为 **C++（g++17）** 和 **C（gcc8.3.0）**；界面按官方原始标签展示，不额外推断环境版本。本地继续使用自己的 CPH 编译配置，可设置 GNU C++11。只展示平台实际返回的数据，不把 HTTP 成功、样例通过或标准输出当成正式 AC。
+在线操作时，保持已配对的同一道题的网页打开。课程题应打开对应课程练习。网页编辑器的 C 或 C++ 选项需与本地源码一致。样例调试只用于观察执行结果，正式评测状态以蓝桥官方结果为准。
 
-结果区分排队、请求发送、平台接受、评测中和完成。取得实际记录后才展示官方记录 ID。超时、断网或宿主重载导致无法确认时标记结果未知，不自动补发提交；请先检查官方记录。
+官方调试和提交结果集中在「查看 → 输出 → Lanqiao OJ」。扩展显示平台实际返回的状态、输出、错误和可用的测试点通过汇总。遇到超时或结果未知时，先查看官方提交记录，再决定是否重试。
 
-## 文件与配置
+## 本地题目管理
+
+在「资源管理器 → 本地题目」可按标签或评测状态查看已导入题目。运行 `Lanqiao: 搜索本地题目`，可用题号、原标题或标签查找。右键「设置标签」可多选已有标签，也可点 `+` 新建。
+
+- **最近打开**按工作区保存，默认显示最近 5 道题。右键可移除记录，视图菜单可清空访问历史。题目、源码和提交历史各自保存在原有位置。
+- **题目状态**随收到的正式评测结果更新。之前通过、之后提交失败的题目仍会标记「曾通过」。
+- **提交历史**保存扩展发起正式提交时的源码快照。展开题目即可查看只读快照，或与当前代码、相邻提交及指定历史版本对比。默认每题保留 20 条。通过「填入网页代码」后手动点网页提交的记录可在蓝桥网页查看。
+- **错题复盘**会登记明确的官方 WA、TLE、MLE、RE、CE，也支持手动加入题目。可写 Markdown 复盘笔记，标记待复盘、复盘中或已复盘。右键「对比失败与通过」会打开最近一次有效的失败与后续 AC 快照。没有后续 AC 时，可对比当前同语言源码。
+
+切题默认采用 `smart`。新题打开后，在同一编辑器组安全清理由扩展打开、已保存且未固定的上一题标签。未保存、固定、手动打开或归属不明的标签会保留。可设置 `keep` 保留全部标签，或用 `closePrevious` 清理两侧符合条件的上一题标签。右侧自动题面可通过 `lanqiao.openMarkdownBesideSource` 关闭。
+
+## 文件与设置
 
 ```text
-~/Code/Learning/Algorithm/Lanqiao/<题号>-<标题>/
-  README.md         题面 Markdown（含原题链接）
-  main.cpp          C++ 解法，从原有 C++ 模板创建
-  main.c            C 解法，选择 C 时创建
-  samples/          输入输出样例
-  .lanqiao.json     题目元数据
-  companion.json    Competitive Companion 兼容数据
-  .cph/             CPH 关联记录（取决于现有 CPH 保存设置）
+<题目根目录>/3263-【练习】选题/
+  README.md        本地 Markdown 题面
+  3263.cpp         C++ 解法（默认文件命名）
+  3263.c           C 解法（选择 C 时创建）
+  samples/         可提取的样例
+  .lanqiao.json    题目元数据
+  .cph/            CPH 样例记录（取决于 CPH 的保存设置）
 ```
 
-重复导入按题号复用，保留已有代码、笔记与测试。CPH 非空记录不覆盖；空记录补样例前确认并备份。图片保留在线链接，未做离线镜像。
+重复导入优先复用已登记的同语言源码，也兼容旧 `main.cpp` 和 `main.c`。资源管理器中的题目名称仍来自导入时保存的原标题。图片通过原链接加载。源码或 Markdown 移动后，可以从本地列表的缺失提示重新关联。源码须与本题的 `.lanqiao.json` 位于同一目录。
 
-| VSCode 设置 | 默认值 | 用途 |
+| 设置 | 默认值 | 用途 |
 | --- | --- | --- |
-| `lanqiao.root` | `~/Code/Learning/Algorithm/Lanqiao` | 新题保存目录 |
-| `lanqiao.template` | `~/Code/template.cpp` | 已存在的 C++ 模板文件 |
-| `lanqiao.cTemplate` | 空 | C 模板，留空使用内置基础模板 |
-| `lanqiao.defaultLanguage` | `cpp` | 新导入题目的默认语言，可选 `cpp` / `c` |
-| `lanqiao.port` | `27124` | 仅监听 `127.0.0.1`，不能占用 CPH 的 `27121` |
+| `lanqiao.root` | `~/Code/Learning/Algorithm/Lanqiao` | 新题的保存目录 |
+| `lanqiao.template` | `~/Code/template.cpp` | 新建 C++ 源码的模板 |
+| `lanqiao.cTemplate` | 空 | C 模板路径，留空使用内置模板 |
+| `lanqiao.defaultLanguage` | `cpp` | 新题默认语言，可选 `cpp` / `c` |
+| `lanqiao.sourceFileNaming` | `problemId` | 设为 `main` 可对新文件使用旧命名 |
+| `lanqiao.editorSwitchBehavior` | `smart` | 切题标签策略 |
+| `lanqiao.openMarkdownBesideSource` | 开启 | 打开题目时自动显示右侧交互题面 |
+| `lanqiao.recentProblems.limit` | `5` | 最近打开显示数量 |
+| `lanqiao.snapshotRetention` | `20` | 每题保留的提交快照数量 |
+| `lanqiao.port` | `27124` | 本机浏览器桥接端口 |
+| `lanqiao.diagnostics` | 关闭 | 在 Lanqiao OJ 输出中记录诊断信息 |
 
-修改端口后重载 VSCode，并在 Tampermonkey 菜单「设置本地端口」填写相同值。每个端口仅由一个 VSCode 窗口持有，请在该窗口使用命令。
+`Lanqiao: 简洁目录显示` 可隐藏工作区题目目录里的内部记录。可用 `Lanqiao: 恢复目录显示设置` 恢复。需要 Companion 格式样例时，运行 `Lanqiao: 导出 Companion JSON`。
 
-## 安全与数据
-
-Bridge 只绑定 `127.0.0.1`，采用随机令牌、VSCode SecretStorage、Tampermonkey 隔离存储、一次性配对、Host / Origin 检查及大小限制。没有网页可调用的任意本地文件读取或命令执行接口。
-
-无遥测或本项目云端代码收集。代码仅在你启动在线调试、确认提交或选择填入网页时交给蓝桥官方页面。浏览器负责正常登录，不绕过登录、验证码、Cloudflare 或访问限制。正式提交每次需要确认，任务不会自动补发。
-
-不修改 CPH、洛谷、Code Runner 全局配置。运行 `Lanqiao: 撤销浏览器授权` 可撤销当前扩展的所有配对。脚本 namespace 保留早期标识以兼容旧安装和配对，实际地址以 homepage / support 链接为准。
-
-## 使用提示与项目定位
-
-- **一题一导入**：用户自行登录并打开题目页面，主动导入当前题目。本工具不提供批量抓取或批量导出题库功能，不建立、收集或上传云端题库。
-- **本地保存**：导入的题面、样例和解法保存在用户自己的电脑中，便于个人学习与复习。
-- **尊重内容权利**：请勿利用本工具公开二次分发受版权保护的题面、批量导出题库、收费售题或规避平台限制。使用时须遵守平台规则及适用的赛事规则。
-- **免费学习工具**：本项目当前不收费、不售卖题库，不提供付费评测服务；在线调试和正式评测由蓝桥官方平台提供。
-- **开源许可**：软件源代码继续采用 MIT 许可证；以上说明描述项目定位与使用提醒，不改变现有软件许可证，也不代表取得题目内容的再分发授权。
-
-## 已验证与限制
-
-开发环境为 macOS Apple Silicon、VSCode、Chrome + Tampermonkey、GCC 15 与本地 GNU C++11。CPH 磁盘适配核验版本为 `2026.10.1792170155`。Windows / Linux 和其他 CPH 版本尚未实机验证。
-
-已实测题面 / 公式 / 样例导入、模板创建、CPH 本地运行、重复导入保护、官方自定义输入调试、编译错误回传、确认后真实提交与 AC 报告、网页刷新和扩展宿主重载恢复。v0.4.0 已实测 C / C++ 的 CPH 样例、C 官方在线调试输出、C 编译错误回传及 C 正式提交；自动化测试共 54 项。题型覆盖以 3008《特殊的三角形》、178《全球变暖》与 21711《最大编号【算法赛】》的实际使用为基础，不保证未来所有题面布局。
-
-整台 VSCode 完全退出重启、真实账号到期 / 限流 / 断网、故意向官方触发 TLE / RE / MLE 未逐项实机验收；相关状态解析、超时及错误处理有自动化覆盖。官方网页内部结构变动可能需要更新适配，无法确认时明确报错并保留手动操作入口。
+题目索引保存在 VSCode 当前配置文件的扩展存储目录，文件名为 `local-problems.json`。快照及笔记位于同一目录的 `submissions/`。最近打开记录通过 VSCode 工作区存储保存。
 
 ## 常见问题
 
-- 无网页按钮：确认是 `/problems/<题号>/learning/`，脚本已启用且允许运行，刷新页面。
-- 无法连接：重载 VSCode，检查「Lanqiao OJ」输出、端口及重复服务窗口。
-- 未提取到样例：查看原题，在 CPH 手动补充；Issues 提供题号与脱敏错误，不上传登录凭据。
-- CPH 为空：打开对应 `main.cpp` 并聚焦 CPH，检查编译器和保存目录；可用 `samples/` 与 `companion.json` 人工恢复。
-- 登录失效 / 验证码：在官方网页正常登录或手动验证，再点重新检测。
-- 超时 / 状态异常：先查看官方记录避免重复提交；自测结果不能直接等同正式评测。
-- 图片缺失：图片使用在线链接，需网络访问。
-- 脚本升级未生效：Tampermonkey 检查更新后刷新题目页；Marketplace 版本通过 VSCode 扩展市场更新，VSIX 安装版本可通过新 VSIX 手动升级。
+- **找不到网页浮球**：检查脚本已启用，刷新对应题目页并等待题面和编辑器加载。云课请切到 OJ 编程练习。
+- **等待网页连接**：打开对应的题库题或课程练习并检查语言。使用 `Lanqiao: 配对` 生成新配对码进行配对。改过端口时，在脚本菜单「设置本地端口」填写同一端口，再刷新网页。一个端口由一个 VSCode 窗口占用。
+- **CPH 为空**：确认 VSCode 已启用 CPH，打开本题实际使用的源码后点「发送至 CPH」。若仍为空，检查 CPH 保存目录，从 `samples/` 手动补充，或开启 `lanqiao.diagnostics` 查看记录路径。
+- **登录失效或权限不足**：回蓝桥网页正常登录并完成平台要求的验证，等待编辑器就绪后点「重新检测」。
+- **更新后显示旧界面**：在 VSCode 扩展详情检查版本并重载窗口。脚本管理器里检查脚本版本，刷新蓝桥网页。
 
-## 开发
+## 数据与使用范围
 
-Node.js 20+，已用 Node.js 24 验证：
+浏览器和 VSCode 只通过本机 `127.0.0.1` 桥接，默认端口 `27124`。使用一次性配对码和本地授权令牌。登录由蓝桥网页处理，插件配对流程只需配对码。
+
+扩展逐题处理用户主动导入的当前页面，题面、样例、源码、快照和笔记保存在本机。代码在你选择调试、提交或填入网页后才交给对应蓝桥页面。本项目无云端题库或代码收集服务。使用时请遵守蓝桥访问要求、赛事规则及题目内容的使用和分发限制。
+
+卸载前可运行 `Lanqiao: 撤销浏览器授权`。之后卸载 VSCode 扩展及浏览器脚本即可。题目目录由你自行保管。
+
+## 开发与验证
 
 ```sh
 npm ci
@@ -137,14 +114,6 @@ npm test
 npm run package
 ```
 
-构建输出 `dist/`，安装包输出 `artifacts/`。`userscript/lanqiao-bridge.user.js` 为发布脚本镜像，发布更新时使用构建产物同步。测试覆盖题面 / Markdown / 样例解析、CPH 转换、授权协议、任务状态、结果与预览，会临时启动回环 HTTP 服务。
+使用 Node.js 20 或以上版本。构建输出为 `dist/`，安装包在 `artifacts/`。脚本镜像位于 `userscript/lanqiao-bridge.user.js`。0.7.4 通过 143 项自动化测试，Mac 独立 VSCode 窗口实测了三种切题策略、未保存与固定标签保护及双栏焦点。测试任务使用本机桥接和测试数据。本版的真实平台提交及 Windows / Linux 实机流程未重新验收。
 
-网页适配集中在 `src/browser/platform.ts`，题面解析在 `src/problem.ts`，样例识别在 `src/sample-collector.ts`，CPH 转换在 `src/storage.ts`，本地授权与通信在 `src/bridge.ts`。
-
-参考：[Competitive Companion 格式](https://github.com/jmerle/competitive-companion#the-format)、[蓝桥解析器](https://github.com/jmerle/competitive-companion/blob/master/src/parsers/problem/LanqiaoProblemParser.ts)、[VSCode Webview 文档](https://code.visualstudio.com/api/extension-guides/webview)。第三方许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
-
-## 卸载
-
-先运行「撤销浏览器授权」（可选），卸载 VSCode 扩展并在 Tampermonkey 删除脚本。题目代码由用户保留或自行删除；不自动清理，不卸载其他插件。无 LaunchAgent 或独立常驻进程。
-
-MIT License，见 [LICENSE](LICENSE)。
+源代码采用 MIT 许可证。[许可证](https://github.com/reverse-l/lanqiao-oj-bridge/blob/main/LICENSE) · [第三方许可](https://github.com/reverse-l/lanqiao-oj-bridge/blob/main/THIRD_PARTY_NOTICES.md)

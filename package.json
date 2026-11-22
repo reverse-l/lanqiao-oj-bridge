@@ -1,9 +1,9 @@
 {
   "name": "lanqiao-oj-bridge",
   "displayName": "Lanqiao OJ Bridge",
-  "description": "蓝桥 OJ 题面导入、C / C++ 解法、CPH 样例、官方在线调试与确认提交",
+  "description": "蓝桥 OJ 题面导入、C / C++ 解法、CPH 样例、官方在线调试与提交",
   "publisher": "epsilon-dev",
-  "version": "0.4.4",
+  "version": "0.7.4",
   "license": "MIT",
   "engines": {
     "vscode": "^1.95.0"
@@ -25,13 +25,13 @@
     "build": "node scripts/build.mjs",
     "check": "tsc --noEmit",
     "test": "node --import tsx --test test/*.test.ts",
-    "package": "npm run build && vsce package --no-dependencies --allow-missing-repository -o artifacts/lanqiao-oj-bridge-0.4.4.vsix"
+    "package": "npm run build && vsce package --no-dependencies --allow-missing-repository -o artifacts/lanqiao-oj-bridge-0.7.4.vsix"
   },
   "contributes": {
     "commands": [
       {
         "command": "lanqiao.preview",
-        "title": "Lanqiao: 打开题面（含操作按钮）",
+        "title": "Lanqiao: 打开题面",
         "icon": "$(open-preview)"
       },
       {
@@ -44,15 +44,15 @@
       },
       {
         "command": "lanqiao.import",
-        "title": "Lanqiao: 导入题目（打开蓝桥网页）"
+        "title": "Lanqiao: 导入题目"
       },
       {
         "command": "lanqiao.localTest",
-        "title": "Lanqiao: 本地测试（CPH）"
+        "title": "Lanqiao: 本地测试"
       },
       {
         "command": "lanqiao.debug",
-        "title": "Lanqiao: 在线调试当前代码"
+        "title": "Lanqiao: 调试当前代码"
       },
       {
         "command": "lanqiao.submit",
@@ -60,7 +60,7 @@
       },
       {
         "command": "lanqiao.prepare",
-        "title": "Lanqiao: 填入网页代码（手动提交）"
+        "title": "Lanqiao: 填入网页代码"
       },
       {
         "command": "lanqiao.recent",
@@ -72,7 +72,11 @@
       },
       {
         "command": "lanqiao.actions",
-        "title": "Lanqiao: 题目操作"
+        "title": "Lanqiao: 题目操作",
+        "icon": {
+          "light": "assets/bridge-action-light.svg",
+          "dark": "assets/bridge-action-dark.svg"
+        }
       },
       {
         "command": "lanqiao.revoke",
@@ -80,20 +84,257 @@
       },
       {
         "command": "lanqiao.switchLanguage",
-        "title": "Lanqiao: 切换解题语言（C / C++）"
+        "title": "Lanqiao: 切换语言"
+      },
+      {
+        "command": "lanqiao.exportCompanion",
+        "title": "Lanqiao: 导出 Companion JSON"
+      },
+      {
+        "command": "lanqiao.cleanExplorer",
+        "title": "Lanqiao: 简洁目录显示"
+      },
+      {
+        "command": "lanqiao.restoreExplorer",
+        "title": "Lanqiao: 恢复目录显示设置"
+      },
+      {
+        "command": "lanqiao.searchLocalProblems",
+        "title": "Lanqiao: 搜索本地题目",
+        "icon": "$(search)"
+      },
+      {
+        "command": "lanqiao.filterLocalProblems",
+        "title": "Lanqiao: 筛选本地题目状态",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "lanqiao.importExistingProblems",
+        "title": "Lanqiao: 导入已有题目记录"
+      },
+      {
+        "command": "lanqiao.openLocalSource",
+        "title": "打开源码"
+      },
+      {
+        "command": "lanqiao.openLocalOriginal",
+        "title": "打开原题"
+      },
+      {
+        "command": "lanqiao.removeRecentProblem",
+        "title": "从最近打开中移除"
+      },
+      {
+        "command": "lanqiao.clearRecentProblems",
+        "title": "Lanqiao: 清空最近打开记录",
+        "shortTitle": "清空最近打开记录"
+      },
+      {
+        "command": "lanqiao.copyLocalProblemId",
+        "title": "复制题号"
+      },
+      {
+        "command": "lanqiao.editLocalProblemTags",
+        "title": "Lanqiao: 管理题目标签",
+        "shortTitle": "设置标签"
+      },
+      {
+        "command": "lanqiao.submissionHistory",
+        "title": "Lanqiao: 查看提交历史",
+        "shortTitle": "查看提交历史"
+      },
+      {
+        "command": "lanqiao.openSubmission",
+        "title": "Lanqiao: 查看历史代码",
+        "shortTitle": "查看历史代码"
+      },
+      {
+        "command": "lanqiao.compareSubmissions",
+        "title": "Lanqiao: 对比历史提交",
+        "shortTitle": "对比历史提交"
+      },
+      {
+        "command": "lanqiao.compareCurrentSubmission",
+        "title": "Lanqiao: 与当前代码比较",
+        "shortTitle": "与当前代码比较"
+      },
+      {
+        "command": "lanqiao.compareAdjacentSubmission",
+        "title": "Lanqiao: 与相邻提交比较",
+        "shortTitle": "与相邻提交比较"
+      },
+      {
+        "command": "lanqiao.compareFailureToAccepted",
+        "title": "Lanqiao: 对比失败与通过",
+        "shortTitle": "对比失败与通过"
+      },
+      {
+        "command": "lanqiao.addReview",
+        "title": "Lanqiao: 添加错题复盘",
+        "shortTitle": "添加错题复盘"
+      },
+      {
+        "command": "lanqiao.editReviewNote",
+        "title": "Lanqiao: 编辑复盘笔记",
+        "shortTitle": "编辑复盘笔记"
+      },
+      {
+        "command": "lanqiao.setReviewStatus",
+        "title": "Lanqiao: 修改复盘状态",
+        "shortTitle": "修改复盘状态"
+      },
+      {
+        "command": "lanqiao.markReviewDone",
+        "title": "Lanqiao: 标记复盘完成",
+        "shortTitle": "标记复盘完成"
+      },
+      {
+        "command": "lanqiao.reviewErrors",
+        "title": "Lanqiao: 查看错题复盘",
+        "shortTitle": "查看错题复盘"
+      },
+      {
+        "command": "lanqiao.deleteSubmission",
+        "title": "Lanqiao: 删除提交快照",
+        "shortTitle": "删除提交快照"
+      },
+      {
+        "command": "lanqiao.cleanSubmissions",
+        "title": "Lanqiao: 清理旧提交快照",
+        "shortTitle": "清理旧提交快照"
       }
     ],
     "menus": {
       "editor/title": [
         {
           "command": "lanqiao.preview",
-          "when": "(resourceExtname == .cpp || resourceExtname == .c) || resourceFilename == README.md",
+          "when": "resourceScheme == file && resourceFilename == README.md",
+          "group": "navigation@1"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "lanqiao.openLocalSource",
+          "when": "false"
+        },
+        {
+          "command": "lanqiao.openLocalOriginal",
+          "when": "false"
+        },
+        {
+          "command": "lanqiao.copyLocalProblemId",
+          "when": "false"
+        },
+        {
+          "command": "lanqiao.removeRecentProblem",
+          "when": "false"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "lanqiao.searchLocalProblems",
+          "when": "view == lanqiao.localProblems",
           "group": "navigation@1"
         },
         {
-          "command": "lanqiao.actions",
-          "when": "(resourceExtname == .cpp || resourceExtname == .c)",
-          "group": "navigation"
+          "command": "lanqiao.filterLocalProblems",
+          "when": "view == lanqiao.localProblems",
+          "group": "navigation@2"
+        },
+        {
+          "command": "lanqiao.importExistingProblems",
+          "when": "view == lanqiao.localProblems"
+        },
+        {
+          "command": "lanqiao.clearRecentProblems",
+          "when": "view == lanqiao.localProblems"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "lanqiao.openLocalSource",
+          "when": "view == lanqiao.localProblems && (viewItem == lanqiaoLocalProblem || viewItem == lanqiaoReviewProblem || viewItem == lanqiaoSubmissionSnapshot)",
+          "group": "navigation@1"
+        },
+        {
+          "command": "lanqiao.openLocalOriginal",
+          "when": "view == lanqiao.localProblems && (viewItem == lanqiaoLocalProblem || viewItem == lanqiaoRecentProblem)",
+          "group": "navigation@2"
+        },
+        {
+          "command": "lanqiao.removeRecentProblem",
+          "when": "view == lanqiao.localProblems && viewItem == lanqiaoRecentProblem",
+          "group": "lanqiaoStudy@1"
+        },
+        {
+          "command": "lanqiao.copyLocalProblemId",
+          "when": "view == lanqiao.localProblems && viewItem == lanqiaoLocalProblem",
+          "group": "navigation@3"
+        },
+        {
+          "command": "lanqiao.editLocalProblemTags",
+          "when": "view == lanqiao.localProblems && viewItem == lanqiaoLocalProblem",
+          "group": "navigation@4"
+        },
+        {
+          "command": "lanqiao.submissionHistory",
+          "when": "view == lanqiao.localProblems && (viewItem == lanqiaoLocalProblem || viewItem == lanqiaoReviewProblem || viewItem == lanqiaoSubmissionHistory)",
+          "group": "lanqiaoStudy@1"
+        },
+        {
+          "command": "lanqiao.openSubmission",
+          "when": "view == lanqiao.localProblems && (viewItem == lanqiaoSubmissionSnapshot)",
+          "group": "lanqiaoStudy@2"
+        },
+        {
+          "command": "lanqiao.compareSubmissions",
+          "when": "view == lanqiao.localProblems && (viewItem == lanqiaoSubmissionHistory || viewItem == lanqiaoSubmissionSnapshot)",
+          "group": "lanqiaoStudy@3"
+        },
+        {
+          "command": "lanqiao.compareCurrentSubmission",
+          "when": "view == lanqiao.localProblems && (viewItem == lanqiaoSubmissionSnapshot)",
+          "group": "lanqiaoStudy@4"
+        },
+        {
+          "command": "lanqiao.compareAdjacentSubmission",
+          "when": "view == lanqiao.localProblems && (viewItem == lanqiaoSubmissionSnapshot)",
+          "group": "lanqiaoStudy@5"
+        },
+        {
+          "command": "lanqiao.compareFailureToAccepted",
+          "when": "view == lanqiao.localProblems && (viewItem == lanqiaoReviewProblem || viewItem == lanqiaoSubmissionHistory)",
+          "group": "lanqiaoStudy@2"
+        },
+        {
+          "command": "lanqiao.addReview",
+          "when": "view == lanqiao.localProblems && (viewItem == lanqiaoLocalProblem)",
+          "group": "lanqiaoStudy@6"
+        },
+        {
+          "command": "lanqiao.editReviewNote",
+          "when": "view == lanqiao.localProblems && (viewItem == lanqiaoReviewProblem)",
+          "group": "lanqiaoStudy@7"
+        },
+        {
+          "command": "lanqiao.setReviewStatus",
+          "when": "view == lanqiao.localProblems && (viewItem == lanqiaoReviewProblem)",
+          "group": "lanqiaoStudy@8"
+        },
+        {
+          "command": "lanqiao.markReviewDone",
+          "when": "view == lanqiao.localProblems && (viewItem == lanqiaoReviewProblem)",
+          "group": "lanqiaoStudy@9"
+        },
+        {
+          "command": "lanqiao.deleteSubmission",
+          "when": "view == lanqiao.localProblems && (viewItem == lanqiaoSubmissionSnapshot)",
+          "group": "lanqiaoStudy@11"
+        },
+        {
+          "command": "lanqiao.cleanSubmissions",
+          "when": "view == lanqiao.localProblems && (viewItem == lanqiaoSubmissionHistory)",
+          "group": "lanqiaoStudy@12"
         }
       ]
     },
@@ -120,7 +361,7 @@
         "lanqiao.template": {
           "type": "string",
           "default": "~/Code/template.cpp",
-          "description": "新建 main.cpp 使用的现有 C++ 模板。"
+          "description": "创建 C++ 解法文件时使用的现有模板。"
         },
         "lanqiao.defaultLanguage": {
           "type": "string",
@@ -135,9 +376,62 @@
           "type": "string",
           "default": "",
           "description": "C 模板文件路径；留空使用内置基础 C 模板。与现有 C++ 模板独立。"
+        },
+        "lanqiao.snapshotRetention": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200,
+          "default": 20,
+          "description": "每道题保留的最近正式提交快照数。提交进行中保留其快照。"
+        },
+        "lanqiao.openMarkdownBesideSource": {
+          "type": "boolean",
+          "default": true,
+          "description": "从浏览器导入或从本地题目打开源码时，在右侧显示蓝桥交互题面。已打开的题面会直接复用。"
+        },
+        "lanqiao.editorSwitchBehavior": {
+          "type": "string",
+          "enum": ["smart", "keep", "closePrevious"],
+          "default": "smart",
+          "enumDescriptions": [
+            "智能替换：同一编辑器组打开新题后，关闭该组上一题由扩展打开且已保存、未固定的标签。",
+            "保留所有：切题时保留已打开的标签。",
+            "清理上一题：打开新题后，关闭上一题由扩展打开且已保存、未固定的标签，即使对应编辑器组没有新标签。"
+          ],
+          "description": "从本地题目列表、搜索或浏览器打开另一道题目时的标签处理方式。"
+        },
+        "lanqiao.sourceFileNaming": {
+          "type": "string",
+          "enum": ["problemId", "main"],
+          "default": "problemId",
+          "enumDescriptions": ["以题号命名，例如 3263.cpp 或 3263.c。", "使用 main.cpp 或 main.c。"],
+          "description": "新建题目源码时使用的文件名。已有源码会优先复用。"
+        },
+        "lanqiao.recentProblems.limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 5,
+          "description": "本地题目视图中「最近打开」显示的题目数量。"
         }
       }
-    }
+    },
+    "views": {
+      "explorer": [
+        {
+          "id": "lanqiao.localProblems",
+          "name": "本地题目",
+          "contextualTitle": "蓝桥 OJ",
+          "visibility": "visible"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "lanqiao.localProblems",
+        "contents": "从蓝桥网页导入题目后，记录会显示在这里。\n[导入已有题目记录](command:lanqiao.importExistingProblems)"
+      }
+    ]
   },
   "dependencies": {
     "@vscode/markdown-it-katex": "^1.1.2",

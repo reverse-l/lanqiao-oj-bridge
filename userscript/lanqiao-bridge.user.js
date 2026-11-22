@@ -1,16 +1,18 @@
 // ==UserScript==
 // @name         Lanqiao OJ Bridge
 // @namespace    https://github.com/epsilon-local/lanqiao-oj-bridge
-// @version      0.4.0
+// @version      0.6.0
 // @author       reverse-l
 // @license      MIT
 // @homepageURL  https://github.com/reverse-l/lanqiao-oj-bridge
 // @supportURL   https://github.com/reverse-l/lanqiao-oj-bridge/issues
 // @downloadURL  https://raw.githubusercontent.com/reverse-l/lanqiao-oj-bridge/main/userscript/lanqiao-bridge.user.js
 // @updateURL    https://raw.githubusercontent.com/reverse-l/lanqiao-oj-bridge/main/userscript/lanqiao-bridge.user.js
-// @description  蓝桥题面导入 VSCode、CPH 样例、官方在线调试和确认提交
+// @description  蓝桥题面导入 VSCode、CPH 样例、官方在线调试与提交
 // @match        https://www.lanqiao.cn/problems/*/learning/*
 // @match        https://lanqiao.cn/problems/*/learning/*
+// @match        https://www.lanqiao.cn/courses/*/learning/*
+// @match        https://lanqiao.cn/courses/*/learning/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
 // @grant        GM_setValue
@@ -540,7 +542,7 @@
   var reduce = Array.prototype.reduce;
   function TurndownService(options) {
     if (!(this instanceof TurndownService)) return new TurndownService(options);
-    var defaults = {
+    var defaults2 = {
       rules,
       headingStyle: "setext",
       hr: "* * *",
@@ -563,7 +565,7 @@
         return node.isBlock ? "\n\n" + content + "\n\n" : content;
       }
     };
-    this.options = extend({}, defaults, options);
+    this.options = extend({}, defaults2, options);
     this.rules = new Rules(this.options);
   }
   TurndownService.prototype = {
@@ -734,6 +736,21 @@
 
   // src/problem.ts
   var OFFICIAL_ORIGINS = /* @__PURE__ */ new Set(["https://www.lanqiao.cn", "https://lanqiao.cn"]);
+  function normalizeCourseUrl(value) {
+    if (typeof value !== "string" || value.length > 2e3) throw new Error("\u8BFE\u7A0B URL \u65E0\u6548");
+    let url;
+    try {
+      url = new URL(value);
+    } catch {
+      throw new Error("\u8BFE\u7A0B URL \u65E0\u6548");
+    }
+    const course = url.pathname.match(/^\/courses\/(\d{1,10})\/learning\/?$/);
+    const units = url.searchParams.getAll("id");
+    if (!OFFICIAL_ORIGINS.has(url.origin) || url.username || url.password || !course || units.length !== 1 || !/^\d{1,10}$/.test(units[0])) {
+      throw new Error("\u8BFE\u7A0B URL \u65E0\u6548");
+    }
+    return `${url.origin}/courses/${course[1]}/learning/?id=${units[0]}`;
+  }
   function problemId(url) {
     const u = new URL(url);
     const match = u.pathname.match(/^\/problems\/(\d+)\/(?:learning\/?)?$/);
@@ -757,7 +774,9 @@
         limits[language] = { ...value2.timeLimit ? { timeLimit: value2.timeLimit } : {}, ...value2.memoryLimit ? { memoryLimit: value2.memoryLimit } : {} };
       }
     }
-    return { version: 1, id: p.id, title: p.title.trim(), url: p.url, markdown: p.markdown, tests: p.tests.map((t) => ({ input: t.input, output: t.output })), ...p.timeLimit ? { timeLimit: p.timeLimit } : {}, ...p.memoryLimit ? { memoryLimit: p.memoryLimit } : {}, ...Object.keys(limits).length ? { limits } : {} };
+    const courseUrl = p.courseUrl === void 0 ? void 0 : normalizeCourseUrl(p.courseUrl);
+    if (p.source !== void 0 && p.source !== (courseUrl ? "lanqiao-course" : "lanqiao-oj")) throw new Error("\u9898\u76EE\u6765\u6E90\u4E0E\u94FE\u63A5\u4E0D\u4E00\u81F4");
+    return { version: 1, id: p.id, title: p.title.trim(), url: p.url, markdown: p.markdown, tests: p.tests.map((t) => ({ input: t.input, output: t.output })), ...p.source ? { source: p.source } : {}, ...courseUrl ? { courseUrl } : {}, ...p.timeLimit ? { timeLimit: p.timeLimit } : {}, ...p.memoryLimit ? { memoryLimit: p.memoryLimit } : {}, ...Object.keys(limits).length ? { limits } : {} };
   }
   function parseProblem(doc, url) {
     const id = problemId(url), source = doc.querySelector(".markdown-body"), title = doc.querySelector(".course-name")?.textContent?.replace(/^\s*\d+\s*[.、．]\s*/, "").trim();
@@ -839,6 +858,39 @@ ${markdown}
     return `\u5B98\u65B9\u8BF7\u6C42\u5931\u8D25\uFF08HTTP ${status2}\uFF09\uFF0C\u8BF7\u5728\u7F51\u9875\u67E5\u770B\u8BE6\u60C5\u3002`;
   }
 
+  // src/browser/page-context.ts
+  var numeric = (value) => typeof value === "number" && Number.isSafeInteger(value) && value > 0 || typeof value === "string" && /^\d{1,10}$/.test(value) ? String(value) : void 0;
+  function resolvePageContext(page) {
+    let u;
+    try {
+      u = new URL(page.location.href);
+    } catch {
+      return;
+    }
+    if (!OFFICIAL_ORIGINS.has(u.origin) || u.username || u.password) return;
+    const env = page.document.querySelector(".online-judge-env")?.__vue__;
+    const ordinary = u.pathname.match(/^\/problems\/(\d{1,10})\/learning\/?$/);
+    if (ordinary) {
+      const id2 = ordinary[1];
+      if (env?.labId !== void 0 && numeric(env.labId) !== id2 || env?.problemId !== void 0 && numeric(env.problemId) !== id2) return;
+      return { kind: "problem", id: id2, key: `problem:${id2}`, url: `${u.origin}/problems/${id2}/learning/` };
+    }
+    const course = u.pathname.match(/^\/courses\/(\d{1,10})\/learning\/?$/), labId = numeric(u.searchParams.get("id"));
+    if (!course || !labId || !env) return;
+    const model = env.labModel, oj = env.ojLab, id = numeric(oj?.problem_id);
+    if (!id || model?.isOjLab !== true || model?.isContest === true || numeric(env.labId) !== labId || numeric(model.lab?.id) !== labId || numeric(oj.lab?.id) !== labId) return;
+    if (numeric(model.ojLab?.problem_id) !== id || numeric(model.ojLab?.lab?.id) !== labId) return;
+    if (env.problemId !== void 0 && numeric(env.problemId) !== id || model.course?.id !== void 0 && numeric(model.course.id) !== course[1]) return;
+    return {
+      kind: "course",
+      id,
+      labId,
+      key: `course:${course[1]}:${labId}:${id}`,
+      url: `${u.origin}/problems/${id}/learning/`,
+      courseUrl: `${u.origin}/courses/${course[1]}/learning/?id=${labId}`
+    };
+  }
+
   // src/browser/platform.ts
   var SELECTORS = { environment: ".online-judge-env", debug: "button.debug", submit: "#oj-submit-btn", title: ".course-name", statement: ".markdown-body" };
   function environment(page) {
@@ -862,8 +914,8 @@ ${markdown}
     }
   };
   async function executeOfficial(page, job, progress, backup) {
-    const id = page.location.pathname.match(/^\/problems\/(\d+)\/learning\/?$/)?.[1];
-    if (id !== job.problemId) throw new Error("\u9875\u9762\u9898\u53F7\u4E0E\u4EFB\u52A1\u4E0D\u4E00\u81F4\uFF0C\u5DF2\u505C\u6B62");
+    const context = resolvePageContext(page);
+    if (!context || context.id !== job.problemId) throw new Error("\u9875\u9762\u9898\u53F7\u4E0E\u4EFB\u52A1\u4E0D\u4E00\u81F4\uFF0C\u6216\u8BFE\u7A0B\u5355\u5143\u5C1A\u672A\u5C31\u7EEA\uFF0C\u5DF2\u505C\u6B62");
     const env = environment(page);
     if (env.submitting) throw new Error("\u7F51\u7AD9\u6B63\u5728\u8FD0\u884C\u6216\u8BC4\u6D4B\uFF0C\u8BF7\u5B8C\u6210\u540E\u624B\u52A8\u91CD\u8BD5");
     const language = requireLanguage(job.language), label = LANGUAGES[language].officialLabel;
@@ -906,8 +958,10 @@ ${markdown}
           payload = typeof body === "string" ? JSON.parse(body) : null;
         } catch {
         }
-        const isSubmit = url === `${base}submit/`;
-        if (isSubmit && (payload?.language !== language || payload?.submit_content !== job.code || payload?.is_submit !== (job.kind === "submit"))) {
+        const submitUrl = context.kind === "course" ? `${page.location.origin}/api/v2/labs/${context.labId}/online_judge/submit/` : `${base}submit/`;
+        const isSubmit = url === submitUrl;
+        const anySubmit = url.startsWith(`${page.location.origin}/api/v2/`) && /\/(?:problems\/\d+|labs\/\d+\/online_judge)\/submit\/(?:\?.*)?$/.test(url);
+        if (anySubmit && (!isSubmit || resolvePageContext(page)?.key !== context.key || payload?.language !== language || payload?.submit_content !== job.code || payload?.is_submit !== (job.kind === "submit") || context.kind === "course" && String(payload?.problem_id) !== job.problemId)) {
           finish(void 0, new Error("\u5B98\u65B9\u8BF7\u6C42\u7684\u8BED\u8A00\u3001\u4EE3\u7801\u6216\u64CD\u4F5C\u7C7B\u578B\u4E0E\u5DF2\u786E\u8BA4\u4EFB\u52A1\u4E0D\u4E00\u81F4\uFF0C\u5DF2\u963B\u6B62\u53D1\u9001"));
           if (typeof this.abort === "function") this.abort();
           return;
@@ -926,7 +980,7 @@ ${markdown}
               finish(void 0, new OfficialError(httpFailure(this.status), this.status === 401 || this.status === 403 ? "login_required" : void 0));
               return;
             }
-            if (isPoll) return;
+            if (isPoll && context.kind !== "course") return;
             let data;
             try {
               data = this.responseType === "json" ? this.response : JSON.parse(this.responseText);
@@ -940,8 +994,8 @@ ${markdown}
                 return;
               }
               try {
-                const u = new URL(data.submission_url);
-                if (!["https://opcenter.lanqiao.cn", "https://www.lanqiao.cn"].includes(u.origin)) throw new Error();
+                const u = new URL(data.submission_url, page.location.origin);
+                if (!["https://opcenter.lanqiao.cn", page.location.origin].includes(u.origin) || u.username || u.password) throw new Error();
                 submissionId = u.pathname.match(/\/submissions\/([\w-]+)\/?$/)?.[1];
                 if (!submissionId) throw new Error();
                 pollUrls.add(u.href);
@@ -973,16 +1027,153 @@ ${markdown}
     });
   }
 
+  // src/bridge-icon.ts
+  var BRIDGE_PATHS = '<g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5H6.8C5.4 5 5 6 5 7.3v4.1c0 2.7-1 3.8-2.5 4.6C4 16.8 5 17.9 5 20.6v4.1C5 26 5.4 27 6.8 27H8M24 5h1.2c1.4 0 1.8 1 1.8 2.3v4.1c0 2.7 1 3.8 2.5 4.6-1.5.8-2.5 1.9-2.5 4.6v4.1c0 1.3-.4 2.3-1.8 2.3H24"/><path d="M9 22c0-6.4 3.4-10 7-10s7 3.6 7 10M9 22h14M12 17v5m8-5v5M16 12V8"/></g><circle cx="16" cy="7" r="1.8" fill="currentColor"/>';
+  var BRIDGE_ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="28" height="28" aria-hidden="true">${BRIDGE_PATHS}</svg>`;
+
+  // src/browser/dock.ts
+  var defaults = () => ({ side: "right", y: 0.5, expanded: false });
+  function position(value) {
+    const p = value;
+    return { side: p?.side === "left" ? "left" : "right", y: typeof p?.y === "number" && Number.isFinite(p.y) ? Math.max(0, Math.min(1, p.y)) : 0.5, expanded: p?.expanded === true };
+  }
+  function mountDock(page, options) {
+    const doc = page.document, element = doc.createElement("div");
+    element.id = "lanqiao-bridge";
+    const root2 = element.attachShadow({ mode: "open" });
+    root2.innerHTML = `<style>
+ :host{all:initial;position:fixed;z-index:9999;width:44px;height:54px;font:13px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color-scheme:light dark;--paper:light-dark(#fff,#252b35);--ink:light-dark(#233041,#e1e8f3);--muted:light-dark(#5b687a,#afbdcf);--border:light-dark(#dce4ed,#465164);--blue:light-dark(#0869c3,#8ec7ff);color:var(--ink)}
+ *{box-sizing:border-box}button{font:inherit;cursor:pointer}button:focus-visible{outline:2px solid var(--blue);outline-offset:3px}svg{display:block;pointer-events:none}
+ .handle{display:grid;place-items:center;width:44px;height:54px;padding:5px;border:1px solid var(--border);border-right:0;border-radius:16px 0 0 16px;background:var(--paper);color:var(--blue);box-shadow:0 3px 16px #10243d20;touch-action:none;cursor:grab;user-select:none}
+ :host([data-side=left]) .handle{border-left:0;border-right:1px solid var(--border);border-radius:0 16px 16px 0}.handle:active{cursor:grabbing}
+ .panel{position:absolute;top:0;right:54px;width:min(264px,calc(100vw - 66px));max-height:calc(100vh - 16px);overflow:auto;padding:15px;border:1px solid var(--border);border-radius:14px;background:var(--paper);box-shadow:0 8px 30px #10243d24}
+ :host([data-side=left]) .panel{right:auto;left:54px}.panel[hidden]{display:none}:host([data-dragging]) .panel{visibility:hidden}
+ .heading{display:flex;align-items:center;gap:8px;margin-bottom:14px;font-weight:600}.heading svg{width:22px;height:22px;color:var(--blue)}
+ .close{margin-left:auto;border:0;border-radius:4px;background:transparent;color:var(--muted);width:28px;height:28px;font-size:20px}
+ .import{width:100%;padding:9px;border:0;border-radius:7px;background:#0869c3;color:white;font-weight:500}.import:disabled{opacity:.6;cursor:wait}
+ .footer{display:flex;gap:12px;align-items:center;margin-top:12px}.pair{border:0;background:transparent;color:var(--blue);padding:4px 0;margin-left:auto}
+ .status{color:var(--muted);white-space:pre-wrap;overflow-wrap:anywhere;max-height:110px;overflow:auto;flex:1;font-size:12px}
+ @media(pointer:coarse){.close,.pair{min-width:44px;min-height:44px}.import{min-height:44px}}
+ </style><div class="panel" id="bridge-panel" hidden><div class="heading">${BRIDGE_ICON}<span>Lanqiao Bridge</span><button type="button" class="close" aria-label="\u6536\u8D77\u63A7\u4EF6">\xD7</button></div><button type="button" class="import" data-action="import">\u5BFC\u5165 VSCode</button><div class="footer"><span class="status" role="status" aria-live="polite"></span><button type="button" class="pair" data-action="pair">\u914D\u5BF9</button></div></div><button type="button" class="handle" aria-label="\u5C55\u5F00 Lanqiao Bridge\uFF1B\u62D6\u52A8\u53EF\u8D34\u8FB9" aria-controls="bridge-panel" aria-expanded="false" title="\u70B9\u51FB\u5C55\u5F00 / \u6536\u8D77 \xB7 \u62D6\u52A8\u8D34\u8FB9">${BRIDGE_ICON}</button>`;
+    let state = position(options.read()), drag, moved = false;
+    const handle = root2.querySelector(".handle"), panel = root2.querySelector(".panel");
+    const clamp = (n, min, max) => Math.max(min, Math.min(Math.max(min, max), n));
+    const render = () => {
+      element.dataset.side = state.side;
+      element.style.left = state.side === "left" ? "0px" : "auto";
+      element.style.right = state.side === "right" ? "0px" : "auto";
+      panel.hidden = !state.expanded;
+      handle.setAttribute("aria-expanded", String(state.expanded));
+      handle.setAttribute("aria-label", `${state.expanded ? "\u6536\u8D77" : "\u5C55\u5F00"} Lanqiao Bridge\uFF1B\u62D6\u52A8\u53EF\u8D34\u8FB9`);
+      const height = state.expanded ? Math.max(54, panel.offsetHeight || 190) : 54;
+      element.style.top = clamp(state.y * Math.max(0, page.innerHeight - 54), 8, page.innerHeight - height - 8) + "px";
+    };
+    const save = () => options.write({ ...state });
+    const toggle = (expanded) => {
+      state.expanded = expanded;
+      render();
+      save();
+    };
+    handle.addEventListener("click", () => {
+      if (moved) {
+        moved = false;
+        return;
+      }
+      toggle(!state.expanded);
+    });
+    root2.querySelector(".close").addEventListener("click", () => {
+      toggle(false);
+      handle.focus();
+    });
+    const keydown = (event) => {
+      if (event.key === "Escape" && state.expanded) {
+        toggle(false);
+        handle.focus();
+      }
+    };
+    root2.addEventListener("keydown", keydown);
+    handle.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return;
+      const rect = element.getBoundingClientRect();
+      drag = { x: event.clientX, y: event.clientY, left: state.side === "left" ? 0 : page.innerWidth - 44, top: parseFloat(element.style.top) || rect.top };
+      moved = false;
+      handle.setPointerCapture?.(event.pointerId);
+    });
+    handle.addEventListener("pointermove", (event) => {
+      if (!drag) return;
+      if (Math.hypot(event.clientX - drag.x, event.clientY - drag.y) > 6) moved = true;
+      if (!moved) return;
+      element.dataset.dragging = "";
+      element.style.right = "auto";
+      element.style.left = clamp(drag.left + event.clientX - drag.x, 0, page.innerWidth - 44) + "px";
+      element.style.top = clamp(drag.top + event.clientY - drag.y, 8, page.innerHeight - 62) + "px";
+    });
+    const endDrag = (event) => {
+      if (!drag) return;
+      if (moved) {
+        state.side = event.clientX < page.innerWidth / 2 ? "left" : "right";
+        state.y = clamp(parseFloat(element.style.top) / Math.max(1, page.innerHeight - 54), 0, 1);
+      }
+      drag = void 0;
+      delete element.dataset.dragging;
+      render();
+      save();
+    };
+    handle.addEventListener("pointerup", endDrag);
+    handle.addEventListener("pointercancel", (event) => {
+      endDrag(event);
+      moved = false;
+    });
+    for (const [action, callback] of [["import", options.importProblem], ["pair", options.pair]]) {
+      const button = root2.querySelector(`[data-action="${action}"]`);
+      button.addEventListener("click", () => {
+        if (button.disabled) return;
+        button.disabled = true;
+        try {
+          Promise.resolve(callback()).catch((error) => setStatus(String(error))).finally(() => {
+            button.disabled = false;
+            render();
+          });
+        } catch (error) {
+          setStatus(String(error));
+          button.disabled = false;
+        }
+      });
+    }
+    function setStatus(text) {
+      root2.querySelector(".status").textContent = text;
+      render();
+    }
+    const resize = () => {
+      drag = void 0;
+      delete element.dataset.dragging;
+      render();
+    };
+    page.addEventListener("resize", resize);
+    doc.body.appendChild(element);
+    setStatus(options.status);
+    return { element, setStatus, reset: () => {
+      state = defaults();
+      render();
+      save();
+    }, dispose: () => {
+      page.removeEventListener("resize", resize);
+      element.remove();
+    } };
+  }
+
   // src/browser/userscript.ts
   var worker = crypto.randomUUID();
   var running = false;
   var connection = "\u672A\u914D\u5BF9";
   var nextPoll = 0;
   var actionUntil = 0;
+  var dock;
+  var activeKey = "";
   function request(route, data, paired = true) {
     const port = GM_getValue("port", 27124);
     const token = GM_getValue("token", "");
-    if (paired && !token) return Promise.reject(new Error("\u8BF7\u5148\u5728 VSCode \u6267\u884C\u300CLanqiao: \u914D\u5BF9\u6D4F\u89C8\u5668 / \u5B89\u88C5\u811A\u672C\u300D"));
+    if (paired && !token) return Promise.reject(new Error("\u8BF7\u5148\u5728 VSCode \u6267\u884C\u300CLanqiao: \u914D\u5BF9\u300D"));
     return new Promise((resolve, reject) => GM_xmlhttpRequest({
       method: "POST",
       url: `http://127.0.0.1:${port}${route}`,
@@ -1008,11 +1199,10 @@ ${markdown}
     if (message === "\u5DF2\u8FDE\u63A5 VSCode" && Date.now() < actionUntil) return;
     if (message !== "\u5DF2\u8FDE\u63A5 VSCode") actionUntil = Date.now() + 1e4;
     connection = message;
-    const el = document.querySelector("#lanqiao-bridge-status");
-    if (el) el.textContent = message;
+    dock?.setStatus(message);
   }
   async function pair() {
-    const input = prompt("\u8F93\u5165 VSCode\u300CLanqiao: \u914D\u5BF9\u6D4F\u89C8\u5668 / \u5B89\u88C5\u811A\u672C\u300D\u663E\u793A\u7684\u4E00\u6B21\u6027\u914D\u5BF9\u7801\uFF08\u4E0D\u662F\u84DD\u6865\u5BC6\u7801\u6216 Cookie\uFF09\uFF1A");
+    const input = prompt("\u8F93\u5165 VSCode\u300CLanqiao: \u914D\u5BF9\u300D\u663E\u793A\u7684\u4E00\u6B21\u6027\u914D\u5BF9\u7801\uFF08\u4E0D\u662F\u84DD\u6865\u5BC6\u7801\u6216 Cookie\uFF09\uFF1A");
     if (!input) return;
     try {
       const result = await request("/pair", { code: input.trim() }, false);
@@ -1022,21 +1212,15 @@ ${markdown}
       alert(String(e));
     }
   }
-  function saveBackup(code) {
-    const id = problemId(location.href);
-    GM_setValue(`backup-${id}`, code);
-  }
   async function poll() {
     if (running || Date.now() < nextPoll || !GM_getValue("token", "")) return;
-    let id;
-    try {
-      id = problemId(location.href);
-    } catch {
-      return;
-    }
+    const context = resolvePageContext(unsafeWindow);
+    if (!context) return;
+    const id = context.id;
     running = true;
     try {
-      const { job } = await request("/poll", { problemId: id, worker, protocol: 3, ...editorReadiness(unsafeWindow) });
+      const problemSource = context.kind === "course" ? "lanqiao-course" : "lanqiao-oj";
+      const { job } = await request("/poll", { problemId: id, worker, protocol: 3, problemSource, courseUrl: context.courseUrl, ...editorReadiness(unsafeWindow) });
       status("\u5DF2\u8FDE\u63A5 VSCode");
       if (job) {
         status(job.kind === "debug" ? "\u5B98\u65B9\u5728\u7EBF\u8C03\u8BD5\u4E2D\u2026" : job.kind === "submit" ? "\u5B98\u65B9\u63D0\u4EA4\u4E2D\u2026" : "\u586B\u5165\u4EE3\u7801\u2026");
@@ -1045,7 +1229,8 @@ ${markdown}
           chain = chain.then(() => request("/result", { id: job.id, worker, result }));
         };
         try {
-          const result = await executeOfficial(unsafeWindow, job, send, saveBackup);
+          if (resolvePageContext(unsafeWindow)?.key !== context.key) throw new Error("\u9875\u9762\u5355\u5143\u5DF2\u5207\u6362\uFF0C\u4EFB\u52A1\u505C\u6B62\uFF0C\u8BF7\u5728\u76EE\u6807\u9898\u76EE\u91CD\u65B0\u64CD\u4F5C");
+          const result = await executeOfficial(unsafeWindow, job, send, (code) => GM_setValue(`backup-${id}`, code));
           await chain;
           await request("/result", { id: job.id, worker, result });
           status(result.phase === "done" ? `\u5B98\u65B9\u7ED3\u679C\uFF1A${result.status || result.message || "\u5B8C\u6210"}` : result.message || result.phase);
@@ -1065,38 +1250,33 @@ ${markdown}
     }
   }
   function mount() {
-    if (!/\/problems\/\d+\/learning\/?$/.test(location.pathname) || !document.querySelector(".course-name") || document.querySelector("#lanqiao-bridge")) return;
-    const panel = document.createElement("div");
-    panel.id = "lanqiao-bridge";
-    panel.style.cssText = "position:fixed;z-index:9999;bottom:14px;left:14px;padding:10px;background:#16334b;color:white;border-radius:8px;box-shadow:0 2px 10px #0004;font:13px sans-serif;max-width:420px";
-    const button = (label, action) => {
-      const b = document.createElement("button");
-      b.textContent = label;
-      b.style.cssText = "margin-right:8px;padding:6px 10px;color:#16334b;background:white;border:0;border-radius:4px;cursor:pointer";
-      b.onclick = action;
-      panel.appendChild(b);
-    };
-    button("\u5BFC\u5165 VSCode", () => {
-      void (async () => {
-        try {
-          status("\u6B63\u5728\u63D0\u53D6\u9898\u9762\u2026");
-          const p = parseProblem(document, location.href);
-          const r = await request("/import", p);
-          status(`${r.created ? "\u5DF2\u521B\u5EFA" : "\u5DF2\u590D\u7528"} ${p.id}\uFF0C\u6837\u4F8B ${p.tests.length} \u7EC4\uFF1B\u5DF2\u6709\u6587\u4EF6\u4FDD\u7559`);
-        } catch (e) {
-          status(String(e));
-        }
-      })();
-    });
-    button("\u914D\u5BF9", () => {
-      void pair();
-    });
-    const state = document.createElement("div");
-    state.id = "lanqiao-bridge-status";
-    state.textContent = connection;
-    state.style.cssText = "margin-top:6px;white-space:pre-wrap;overflow-wrap:anywhere";
-    panel.appendChild(state);
-    document.body.appendChild(panel);
+    const context = resolvePageContext(unsafeWindow);
+    if (!context || !document.querySelector(".course-name") || !document.querySelector(".markdown-body h1,.markdown-body h2,.markdown-body h3,.markdown-body h4")) {
+      dock?.dispose();
+      dock = void 0;
+      activeKey = "";
+      return;
+    }
+    if (activeKey !== context.key) {
+      activeKey = context.key;
+      actionUntil = 0;
+      status(GM_getValue("token", "") ? "\u7B49\u5F85\u8FDE\u63A5 VSCode" : "\u672A\u914D\u5BF9");
+    }
+    if (dock) return;
+    dock = mountDock(window, { read: () => GM_getValue("dock-position-v1", null), write: (value) => GM_setValue("dock-position-v1", value), status: connection, pair, importProblem: async () => {
+      try {
+        const current = resolvePageContext(unsafeWindow);
+        if (!current) throw new Error("\u5F53\u524D\u5355\u5143\u5C1A\u672A\u52A0\u8F7D\u4E3A OJ \u9898\u76EE\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5");
+        status("\u6B63\u5728\u63D0\u53D6\u9898\u9762\u2026");
+        const p = parseProblem(document, current.url);
+        if (resolvePageContext(unsafeWindow)?.key !== current.key) throw new Error("\u63D0\u53D6\u671F\u95F4\u9875\u9762\u5DF2\u5207\u6362\uFF0C\u8BF7\u91CD\u8BD5");
+        const source = current.kind === "course" ? "lanqiao-course" : "lanqiao-oj";
+        const r = await request("/import", { ...p, source, courseUrl: current.courseUrl });
+        status(`${r.created ? "\u5DF2\u521B\u5EFA" : "\u5DF2\u590D\u7528"} ${p.id}\uFF0C\u6837\u4F8B ${p.tests.length} \u7EC4\uFF1B\u5DF2\u6709\u6587\u4EF6\u4FDD\u7559`);
+      } catch (e) {
+        status(String(e));
+      }
+    } });
   }
   GM_registerMenuCommand("\u914D\u5BF9 VSCode", () => {
     void pair();
@@ -1110,11 +1290,17 @@ ${markdown}
   });
   GM_registerMenuCommand("\u6062\u590D\u4E0A\u6B21\u7F51\u9875\u4EE3\u7801", () => {
     try {
-      const code = GM_getValue(`backup-${problemId(location.href)}`, null);
+      const context = resolvePageContext(unsafeWindow);
+      if (!context) throw new Error("\u5F53\u524D OJ \u9898\u76EE\u5C1A\u672A\u5C31\u7EEA");
+      const code = GM_getValue(`backup-${context.id}`, null);
       if (code !== null && confirm("\u6062\u590D\u6269\u5C55\u64CD\u4F5C\u524D\u7684\u7F51\u9875\u4EE3\u7801\uFF1F")) environment(unsafeWindow).monacoEditor.setValue(code);
     } catch (e) {
       alert(String(e));
     }
+  });
+  GM_registerMenuCommand("\u91CD\u7F6E\u6D6E\u7403\u4F4D\u7F6E", () => {
+    if (dock) dock.reset();
+    else GM_setValue("dock-position-v1", { side: "right", y: 0.5, expanded: false });
   });
   GM_registerMenuCommand("\u6E05\u9664\u672C\u5730\u6388\u6743", () => {
     GM_setValue("token", "");

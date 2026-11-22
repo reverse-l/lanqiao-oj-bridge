@@ -32,8 +32,10 @@ test('任务限定题号和单一接收者；结果必须匹配，不因 HTTP 20
  assert.equal((await s.call('/result',{id:job.id,worker:'b',result:{phase:'done',status:'AC'}},s.auth)).status,409);
  assert.equal((await s.call('/result',{id:job.id,worker:'a',result:{phase:'accepted',submissionId:'real-id'}},s.auth)).status,200);
  assert.equal(job.result?.phase,'accepted');assert.equal(job.result?.status,undefined);
+ assert.equal((await s.call('/result',{id:job.id,worker:'a',result:{phase:'done',status:'AC',submissionId:'other-receipt'}},s.auth)).status,409);
+ assert.equal(job.result?.phase,'accepted');
  assert.equal((await s.call('/result',{id:job.id,worker:'a',result:{phase:'done',status:'CE',stderr:'compiler failed'}},s.auth)).status,200);
- assert.equal(job.result?.status,'CE');assert.equal(job.state,'finished');assert.equal(job.code,undefined);
+ assert.equal(job.result?.status,'CE');assert.equal(job.result?.submissionId,'real-id');assert.equal(job.state,'finished');assert.equal(job.code,undefined);
  }finally{await s.bridge.close();}
 });
 test('超时删除代码且不重发，浏览器断开不自动再次提交',async()=>{
@@ -43,6 +45,60 @@ test('超时删除代码且不重发，浏览器断开不自动再次提交',asy
  await new Promise(r=>setTimeout(r,150));s.bridge.expire();
  assert.equal(j.state,'expired');assert.equal(j.code,undefined);assert.equal(j.result?.phase,'unknown');
  assert.equal((await (await s.call('/poll',{problemId:'3008',worker:'a',protocol:2,editorReady:true,language:'cpp'},s.auth)).json()).job,null);
+ }finally{await s.bridge.close();}
+});
+test('正式提交在快照写完前无法领取，返回的代码和任务 ID 与快照一致',async()=>{
+ const s=await setup();
+ try {
+  let complete!:()=>void;
+  const gate=new Promise<void>(resolve=>{complete=resolve;});
+  const request={kind:'submit' as const,problemId:'3008',code:'int main(){return 0;}'};
+  const saved:Array<{id:string; code?:string}>=[];
+  const run=s.bridge.enqueueSubmission(request,async job=>{saved.push({id:job.id,code:job.code});await gate;});
+  const take=async()=>(await s.call('/poll',{problemId:'3008',worker:'a',protocol:2,editorReady:true,language:'cpp'},s.auth)).json();
+  assert.equal((await take()).job,null);
+  assert.throws(()=>s.bridge.enqueue(request),/正在/);
+  complete();const job=await run;
+  request.code='changed in editor';
+  const {job:claimed}=await take();
+  assert.deepEqual({id:claimed.id,code:claimed.code},saved[0]);
+  assert.equal(claimed.id,job.id);
+ }finally{await s.bridge.close();}
+});
+test('保存快照失败或保存期间撤销授权时，正式任务不会进入队列', async()=>{
+ const s=await setup();
+ try {
+  const request={kind:'submit' as const,problemId:'3008',code:'int main(){}'};
+  await assert.rejects(s.bridge.enqueueSubmission(request,async()=>{throw new Error('disk full');}),/disk full/);
+  assert.equal(s.bridge.recent().length,0);
+  assert.equal(s.bridge.connection('3008').canRunOnline,true);
+  await assert.rejects(s.bridge.enqueueSubmission(request,async()=>{s.bridge.revoke('new-token');}),/未发送/);
+  assert.equal(s.bridge.recent().length,0);
+ }finally{await s.bridge.close();}
+});
+test('已领取任务保留浏览器来源，旧心跳不需要来源字段',async()=>{
+ const s=await setup();try{
+  const job=s.bridge.enqueue({kind:'submit',problemId:'3008',code:'int main(){}'});
+  const poll={problemId:'3008',worker:'a',protocol:3,editorReady:true,language:'cpp'};
+  assert.equal((await s.call('/poll',{...poll,problemSource:'invalid'},s.auth)).status,400);
+  assert.equal((await (await s.call('/poll',{...poll,problemSource:'lanqiao-course'},s.auth)).json()).job.id,job.id);
+  await s.call('/poll',{...poll,problemSource:'lanqiao-oj'},s.auth);
+  assert.equal((await s.call('/result',{id:job.id,worker:'a',result:{phase:'done',status:'WA',submissionId:'official-id'}},s.auth)).status,200);
+  assert.equal(s.bridge.recent()[0].problemSource,'lanqiao-course');
+ }finally{await s.bridge.close();}
+});
+test('同一题号的课程任务只交给课程标签页，不使用来源未知的标签页',async()=>{
+ const s=await setup();try{
+  const poll={problemId:'3008',protocol:3,editorReady:true,language:'cpp'};
+  const courseUrl='https://www.lanqiao.cn/courses/71/learning/?id=123';
+  const call=async(worker:string,problemSource?:string,courseUrl?:string)=>(await s.call('/poll',{...poll,worker,problemSource,courseUrl},s.auth)).json();
+  await call('ordinary','lanqiao-oj');await call('course','lanqiao-course',courseUrl);
+  const sourceScope={source:'lanqiao-course' as const,courseUrl};
+  const job=s.bridge.enqueue({kind:'submit',problemId:'3008',code:'int main(){}',sourceScope});
+  assert.equal((await call('ordinary','lanqiao-oj')).job,null);
+  assert.equal((await call('a')).job,null);
+  assert.equal((await call('other-course','lanqiao-course',courseUrl.replace('123','456'))).job,null);
+  assert.equal((await call('course','lanqiao-course',courseUrl)).job.id,job.id);
  }finally{await s.bridge.close();}
 });
 test('只接受当前题号就绪的新版脚本，错题心跳不能冒充连接',async()=>{

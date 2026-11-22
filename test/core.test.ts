@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parseHTML} from 'linkedom';
-import {mkdtemp, readFile, writeFile, readdir, symlink, mkdir, realpath} from 'node:fs/promises';
+import {mkdtemp, readFile, writeFile, readdir, symlink, mkdir, realpath, rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {parseProblem, validateProblem, toCompanion} from '../src/problem';
@@ -40,6 +40,7 @@ test('重复导入不覆盖代码、题面、自建样例或 CPH 文件，按题
  const root=await mkdtemp(path.join(await realpath(tmpdir()),'lanqiao-test-')); const template=path.join(root,'template.cpp'); await writeFile(template,'// TEMPLATE\n');
  const p=parseProblem(documentOf(),url); const first=await importProblem(root,template,p);
  assert.equal(await readFile(first.source,'utf8'),'// TEMPLATE\n');
+ assert.deepEqual((await readdir(first.directory)).sort(),['.cph','.lanqiao.json','README.md','3008.cpp','samples'].sort());
  await writeFile(first.source,'// MY SOLUTION'); await writeFile(path.join(first.directory,'README.md'),'MY NOTES');
  await writeFile(first.cphPath,'{"tests":[{"input":"custom"}]}');
  const second=await importProblem(root,template,{...p,title:'新标题'});
@@ -58,19 +59,48 @@ test('拒绝已存在的符号链接，标题中的路径字符不能逃出 root
  await mkdir(path.join(root,'3010-safe')); await symlink(path.join(outside,'stolen'),path.join(root,'3010-safe','main.cpp'));
  await assert.rejects(()=>importProblem(root,template,{...p,id:'3010',url:url.replace('3008','3010'),title:'safe'}),/符号链接/);
 });
-test('C 导入生成独立 main.c 和样例记录，重复导入保留 C 与 C++ 解法',async()=>{
+test('C 导入生成独立题号源码和样例记录，重复导入保留 C 与 C++ 解法',async()=>{
  const root=await mkdtemp(path.join(await realpath(tmpdir()),'lanqiao-c-'));const cppTemplate=path.join(root,'template.cpp'),cTemplate=path.join(root,'template.c');
  await writeFile(cppTemplate,'// CPP TEMPLATE\n');await writeFile(cTemplate,'/* C TEMPLATE */\n');const p=parseProblem(documentOf(),url);
  const cpp=await importProblem(root,cppTemplate,p);await writeFile(cpp.source,'// CPP SOLUTION');await writeFile(cpp.cphPath,'{"tests":[{"input":"CPP CUSTOM"}]}');
- const c=await importProblem(root,cTemplate,p,'','c');assert.equal(path.basename(c.source),'main.c');assert.equal(c.directory,cpp.directory);assert.equal(await readFile(c.source,'utf8'),'/* C TEMPLATE */\n');
+ const legacy=path.join(cpp.directory,'companion.json');await writeFile(legacy,'LEGACY EXPORT MUST STAY');
+ const oldCpp=path.join(cpp.directory,'companion.cpp.json');await writeFile(oldCpp,'OLD CPP EXPORT');
+ const c=await importProblem(root,cTemplate,p,'','c');assert.equal(path.basename(c.source),'3008.c');assert.equal(c.directory,cpp.directory);assert.equal(await readFile(c.source,'utf8'),'/* C TEMPLATE */\n');
  assert.notEqual(c.cphPath,cpp.cphPath);assert.equal(JSON.parse(await readFile(c.cphPath,'utf8')).srcPath,c.source);
  await writeFile(c.source,'/* C SOLUTION */');await writeFile(c.cphPath,'{"tests":[{"input":"C CUSTOM"}]}');
  const again=await importProblem(root,'',p,'','c');assert.equal(again.source,c.source);assert.equal(await readFile(c.source,'utf8'),'/* C SOLUTION */');assert.match(await readFile(c.cphPath,'utf8'),/C CUSTOM/);
- assert.equal(await readFile(cpp.source,'utf8'),'// CPP SOLUTION');assert.match(await readFile(cpp.cphPath,'utf8'),/CPP CUSTOM/);assert.equal(JSON.parse(await readFile(path.join(c.directory,'companion.json'),'utf8')).srcPath,cpp.source);
+ assert.equal(await readFile(cpp.source,'utf8'),'// CPP SOLUTION');assert.match(await readFile(cpp.cphPath,'utf8'),/CPP CUSTOM/);
+ assert.equal(await readFile(legacy,'utf8'),'LEGACY EXPORT MUST STAY');assert.equal(await readFile(oldCpp,'utf8'),'OLD CPP EXPORT');assert.equal((await readdir(c.directory)).includes('companion.c.json'),false);
 });
 test('C 未指定模板时提供基础模板，不依赖或修改 C++ 模板',async()=>{
  const root=await mkdtemp(path.join(await realpath(tmpdir()),'lanqiao-c-template-'));const c=await importProblem(root,'',parseProblem(documentOf(),url),'','c');
- assert.equal(path.basename(c.source),'main.c');assert.match(await readFile(c.source,'utf8'),/#include <stdio.h>/);
+ assert.equal(path.basename(c.source),'3008.c');assert.match(await readFile(c.source,'utf8'),/#include <stdio.h>/);
+});
+test('命名设置只影响创建，登记的自定义源码和旧 main.cpp 优先复用', async t => {
+ const root=await mkdtemp(path.join(await realpath(tmpdir()),'lanqiao-naming-'));
+ t.after(()=>rm(root,{recursive:true,force:true}));
+ const template=path.join(root,'template.cpp');
+ await writeFile(template,'// template');
+ const rank=(id:string,title:string)=>({...parseProblem(documentOf(),url),id,title,url:url.replace('3008',id)});
+ const old=rank('3263','【练习】选题');
+ const legacy=await importProblem(root,template,old,'','cpp',undefined,{naming:'main'});
+ assert.equal(path.basename(legacy.source),'main.cpp');
+ await writeFile(legacy.source,'// existing');
+ assert.equal((await importProblem(root,template,old)).source,legacy.source);
+ assert.deepEqual((await readdir(legacy.directory)).filter(file=>file.endsWith('.cpp')),['main.cpp']);
+ const fresh=rank('17003','【练习】霓虹');
+ const numbered=await importProblem(root,template,fresh);
+ assert.equal(path.basename(numbered.source),'17003.cpp');
+ assert.equal((await importProblem(root,template,fresh,'','cpp',undefined,{naming:'main'})).source,numbered.source);
+ const custom=path.join(numbered.directory,'working.cpp');
+ await writeFile(custom,'// keep custom');
+ const changedRoot=path.join(root,'new root');
+ const reused=await importProblem(changedRoot,'',fresh,'','cpp',undefined,{existingSource:custom});
+ assert.equal(reused.source,custom);
+ assert.equal(reused.created,false);
+ assert.equal(await readFile(reused.source,'utf8'),'// keep custom');
+ assert.equal(JSON.parse(await readFile(reused.cphPath,'utf8')).srcPath,custom);
+ await assert.rejects(importProblem(root,template,{...fresh,id:'../17003'}),/题号或 URL 无效/);
 });
 test('C 资源限制使用对应语言行，不能误用 C++ 时限',()=>{
  const doc=documentOf();const table=doc.querySelector('table')!;table.insertAdjacentHTML('beforeend','<tr><td>C</td><td>2s</td><td>128M</td></tr>');

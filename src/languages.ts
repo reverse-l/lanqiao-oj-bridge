@@ -1,8 +1,12 @@
 export type LanguageId='cpp'|'c';
+export type SourceFileNaming='problemId'|'main';
 export const LANGUAGES={
  cpp:{label:'C++',fileName:'main.cpp',officialLabel:'C++（g++17）'},
  c:{label:'C',fileName:'main.c',officialLabel:'C（gcc8.3.0）'}
 } as const;
+export function problemSourceName(id:string,language:LanguageId,naming:SourceFileNaming='problemId'):string {
+ return naming==='problemId'&&id.match(/^\d{1,10}$/)?.[0]===id?`${id}.${language}`:LANGUAGES[language].fileName;
+}
 export function requireLanguage(value:unknown):LanguageId {
  if(value===undefined)return 'cpp';
  if(value==='cpp'||value==='c')return value;

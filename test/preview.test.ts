@@ -10,6 +10,7 @@ test('题面内有 CPH 与提交入口，公式/代码/图片继续显示',()=>{
  assert.equal(document.querySelector('button[data-action="sendToCph"]')?.textContent?.trim(),'发送至 CPH');
  assert.equal(document.querySelector('button[data-action="submit"]')?.textContent?.trim(),'提交');
  assert.equal(document.querySelector('[data-action="pair"]')?.textContent,'配对');
+ assert.equal(document.querySelector('[data-action="debug"]')?.textContent,'调试');
  assert.equal(document.querySelector('.language-badge')?.textContent,'C++');
  assert.equal(Boolean(document.querySelector('.connection small,.language,.empty-result')),false);
  assert.ok(document.querySelector('.katex'));assert.equal(document.querySelector('pre code')?.textContent,'int main() {}\n');
@@ -30,9 +31,20 @@ test('Webview 只能请求固定动作，不能指定另一题、路径、代码
 });
 test('题面开始可复制 Markdown，每个代码样例有独立复制入口，按钮不混入样例',()=>{
  const {document}=parseHTML(html('## 样例输入\n\n```\n2024 124578\n```\n\n## 样例输出\n\n```\n145728\n```'));
- assert.equal(document.querySelector('[data-action="copyMarkdown"]')?.textContent,'复制题面 Markdown');
+ assert.equal(document.querySelector('[data-action="copyMarkdown"]')?.getAttribute('aria-label'),'复制完整题面 Markdown');
+ assert.ok(document.querySelector('[data-action="copyMarkdown"] svg'));
  assert.equal(document.querySelectorAll('article button[data-copy-block]').length,2);
  assert.equal(document.querySelector('article pre code')?.textContent,'2024 124578\n');
+});
+test('完整题目复制图标位于第一个描述标题内最右侧，不混入题面与代码内容',()=>{
+ const {document}=parseHTML(html('## 问题描述\n\n内容 $x^2$。\n\n## 题目描述\n\n补充内容。'));
+ const heading=document.querySelector('article h2')!;
+ assert.equal(heading.lastElementChild?.getAttribute('data-action'),'copyMarkdown');
+ assert.equal(heading.querySelector('.heading-text')?.textContent,'问题描述');
+ assert.equal(document.querySelectorAll('[data-action="copyMarkdown"]').length,1);
+ assert.equal(document.querySelector('.statement-tools'),null);
+ assert.equal(document.querySelector('#result,.result-card'),null);
+ assert.ok(document.querySelector('.katex'));
 });
 test('复制块与渲染顺序相同，引用块内样例、空格及空行原样保留',()=>{
  const markdown='> ```\n> 7\n> .......\n> \n> ```\n\n    1  2\n\n```cpp\ncout << "<x>";\n```';
@@ -54,4 +66,18 @@ test('C 题面绑定 main.c 显示真实语言与切换入口',()=>{
  const {document}=parseHTML(renderProblemPreview(p,{nonce:'n',cspSource:'vscode-resource:',katexCss:'vscode-resource:/katex.css',source:'/tmp/3008/main.c'}));
  assert.equal(document.querySelector('[data-action="submit"]')?.textContent,'提交');assert.equal(document.querySelector('.language-badge')?.textContent,'C');assert.match(document.querySelector('.language-badge')!.getAttribute('title')!,/gcc8.3.0/);assert.ok(document.querySelector('[data-action="switchLanguage"]'));
  assert.equal(parsePreviewAction({action:'switchLanguage'}),'switchLanguage');assert.equal(parsePreviewAction({action:'switchLanguage',language:'python'}),undefined);
+});
+test('糖果题的引用式输入输出标签与代码框对齐，样例原文和复制顺序保留',()=>{
+ const input='6 5 3\n1 1 2\n1 2 3\n1 1 3\n2 3 5\n5 4 2\n5 1 2\n';
+ const markdown='### 输入输出样例\n\n#### 示例\n\n> 输入\n\n```txt\n'+input+'```\n\n> 输出\n\n```txt\n2\n```';
+ const {document}=parseHTML(html(markdown));
+ assert.deepEqual([...document.querySelectorAll('article .sample-label')].map(e=>e.textContent?.trim()),['输入','输出']);
+ assert.deepEqual([...document.querySelectorAll('article pre code')].map(e=>e.textContent),[input,'2\n']);
+ assert.deepEqual(markdownCodeBlocks(markdown),[input,'2\n']);
+ assert.ok([...document.querySelectorAll('article .sample-label')].every(e=>e.nextElementSibling?.classList.contains('copy-block')));
+});
+test('普通引用与代码中的输入输出文字不能被当成样例标签',()=>{
+ const {document}=parseHTML(html('> 输出需要保留引用格式。\n\n```\n> 输入\n```\n\n> 输入\n\n这是一段说明，并不是代码样例。'));
+ assert.equal(document.querySelectorAll('article .sample-label').length,0);
+ assert.equal(document.querySelectorAll('article blockquote').length,2);
 });

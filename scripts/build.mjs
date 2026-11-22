@@ -17,16 +17,18 @@ await build({entryPoints:['src/webview/main.ts'],outfile:'dist/preview-client.js
 const header=`// ==UserScript==
 // @name         Lanqiao OJ Bridge
 // @namespace    https://github.com/epsilon-local/lanqiao-oj-bridge
-// @version      0.4.0
+// @version      0.6.0
 // @author       reverse-l
 // @license      MIT
 // @homepageURL  https://github.com/reverse-l/lanqiao-oj-bridge
 // @supportURL   https://github.com/reverse-l/lanqiao-oj-bridge/issues
 // @downloadURL  https://raw.githubusercontent.com/reverse-l/lanqiao-oj-bridge/main/userscript/lanqiao-bridge.user.js
 // @updateURL    https://raw.githubusercontent.com/reverse-l/lanqiao-oj-bridge/main/userscript/lanqiao-bridge.user.js
-// @description  蓝桥题面导入 VSCode、CPH 样例、官方在线调试和确认提交
+// @description  蓝桥题面导入 VSCode、CPH 样例、官方在线调试与提交
 // @match        https://www.lanqiao.cn/problems/*/learning/*
 // @match        https://lanqiao.cn/problems/*/learning/*
+// @match        https://www.lanqiao.cn/courses/*/learning/*
+// @match        https://lanqiao.cn/courses/*/learning/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
 // @grant        GM_setValue
@@ -38,4 +40,7 @@ const header=`// ==UserScript==
 // ==/UserScript==`;
 const turndownLicense=await readFile('node_modules/turndown/LICENSE','utf8');
 await build({entryPoints:['src/browser/userscript.ts'],outfile:'dist/lanqiao-bridge.user.js',platform:'browser',format:'iife',target:'chrome110',bundle:true,banner:{js:header},legalComments:'none',footer:{js:`/*\nBundled Turndown license:\n${turndownLicense}\n*/`}});
-await writeFile('artifacts/lanqiao-bridge.user.js',await readFile('dist/lanqiao-bridge.user.js'));
+const userscript=await readFile('dist/lanqiao-bridge.user.js');
+await writeFile('artifacts/lanqiao-bridge.user.js',userscript);
+await mkdir('userscript',{recursive:true});
+await writeFile('userscript/lanqiao-bridge.user.js',userscript);

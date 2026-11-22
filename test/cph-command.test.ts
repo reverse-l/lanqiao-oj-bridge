@@ -17,22 +17,22 @@ for(const diagnostics of [false,true])for(const failure of [false,true])test(`CP
  const logs:string[]=[],notifications:string[]=[],errors:string[]=[],commands=new Map<string,()=>Promise<unknown>>(),focused:string[]=[];let outputShows=0;
  const disposable={dispose(){}};
  const doc={fileName:actualSource,uri:{scheme:'file',fsPath:actualSource},isDirty:false};
- const vscode={version:'test',ViewColumn:{One:1,Two:2},StatusBarAlignment:{Left:1},
-  window:{createOutputChannel:()=>({appendLine:(s:string)=>logs.push(s),show(){outputShows++;},dispose(){}}),
+ const vscode={TreeItem:class {constructor(readonly label:string){}},ThemeIcon:class {},TreeItemCollapsibleState:{None:0,Collapsed:1,Expanded:2},EventEmitter:class {event=()=>disposable;fire(){}dispose(){}},version:'test',ViewColumn:{One:1,Two:2},StatusBarAlignment:{Left:1},
+  window:{createTreeView:()=>({...disposable}),createOutputChannel:()=>({appendLine:(s:string)=>logs.push(s),show(){outputShows++;},dispose(){}}),
    activeTextEditor:{document:{...doc,fileName:source,uri:{scheme:'file',fsPath:source}}},registerWebviewPanelSerializer:()=>disposable,
    createStatusBarItem:()=>({...disposable,hide(){},show(){}}),onDidChangeActiveTextEditor:()=>disposable,
    showTextDocument:async()=>({document:doc}),showInformationMessage:async(s:string)=>{notifications.push(s);},showWarningMessage:async(s:string)=>{logs.push(s);},showErrorMessage:async(s:string)=>{errors.push(s);}},
-  workspace:{getConfiguration:()=>({get:(key:string,fallback:unknown)=>key==='port'?0:key==='diagnostics'?diagnostics:fallback}),openTextDocument:async()=>doc},
+  workspace:{onDidChangeConfiguration:()=>disposable,registerTextDocumentContentProvider:()=>disposable,getConfiguration:()=>({get:(key:string,fallback:unknown)=>key==='port'?0:key==='diagnostics'?diagnostics:fallback}),openTextDocument:async()=>doc},
   extensions:{getExtension:()=>({packageJSON:{version:'2026.10.1792170155'},isActive:true,activate:async()=>{if(failure)throw new Error('CPH activation failed');}})},
   Uri:{file:(fsPath:string)=>({fsPath})},
   commands:{registerCommand:(id:string,run:()=>Promise<unknown>)=>{commands.set(id,run);return disposable;},executeCommand:async(id:string)=>{focused.push(id);}}
  };
  const bundle=await build({entryPoints:['src/extension.ts'],bundle:true,platform:'node',format:'cjs',external:['vscode'],write:false,logLevel:'silent'});
  const module={exports:{} as any},require=createRequire(path.resolve('package.json'));
- vm.runInNewContext(bundle.outputFiles[0].text,{module,exports:module.exports,require:(id:string)=>id==='vscode'?vscode:require(id),process,console,Buffer,URL,setInterval,clearInterval,setTimeout,clearTimeout});
+ vm.runInNewContext(bundle.outputFiles[0].text,{module,exports:module.exports,require:(id:string)=>id==='vscode'?vscode:require(id),process,console,Buffer,URL,setInterval,clearInterval,setTimeout,clearTimeout,structuredClone});
  const subscriptions:Array<{dispose():void}>=[];
  try{
-  await module.exports.activate({extension:{packageJSON:{version:'diagnostic'}},subscriptions,secrets:{get:async()=> 'test-only-token'},globalState:{get:()=>[],update:async()=>{}},workspaceState:{get:()=>[]}});
+  await module.exports.activate({globalStorageUri:{fsPath:path.join(dir,'extension-storage')},extension:{packageJSON:{version:'diagnostic'}},subscriptions,secrets:{get:async()=> 'test-only-token'},globalState:{get:()=>[],update:async()=>{}},workspaceState:{get:()=>[]}});
   await commands.get('lanqiao.sendToCph')!();
   if(failure){assert.match(errors.join('\n'),/CPH activation failed/);assert.ok(outputShows>0);assert.equal(notifications.length,0);return;}
   const saved=JSON.parse(await readFile(cphFile(actualSource),'utf8'));
